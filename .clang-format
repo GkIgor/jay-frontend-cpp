@@ -6,3 +6,5 @@ ContinuationIndentWidth: 2
 TabWidth: 2
 UseTab: Never
 ColumnLimit: 120
+MaxEmptyLinesToKeep: 2
+KeepEmptyLinesAtTheStartOfBlocks: true

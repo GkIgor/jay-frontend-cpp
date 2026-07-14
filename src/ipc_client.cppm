@@ -20,11 +20,11 @@ class IPCClient {
 public:
   explicit IPCClient(std::shared_ptr<EventDispatcher> dispatcher)
     : m_dispatcher(std::move(dispatcher)), m_running(false) {
-    const char *xdg = std::getenv("XDG_RUNTIME_DIR");
+    const char* xdg = std::getenv("XDG_RUNTIME_DIR");
     if (xdg)
       m_socketPath = std::string(xdg) + "/jay/jay.sock";
     else {
-      const char *home = std::getenv("HOME");
+      const char* home = std::getenv("HOME");
       if (home)
         m_socketPath = std::string(home) + "/.jay/jay.sock";
       else
@@ -78,7 +78,7 @@ private:
     std::memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     std::strncpy(addr.sun_path, m_socketPath.c_str(), sizeof(addr.sun_path) - 1);
-    if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
       close(sock);
       return -1;
     }
