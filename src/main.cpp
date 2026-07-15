@@ -10,10 +10,10 @@ int main() {
   std::cout << "=== Inicializando Jay Frontend (C++) ===" << std::endl;
   auto avatar = std::make_shared<jay::Avatar>();
   auto dispatcher = std::make_shared<jay::EventDispatcher>(avatar);
-  jay::IPCClient ipcClient(dispatcher);
-  ipcClient.Start();
-  jay::Renderer renderer(avatar);
+  auto ipcClient = std::make_shared<jay::IPCClient>(dispatcher);
+  ipcClient->Start();
+  jay::Renderer renderer(avatar, ipcClient);
   renderer.Run();
-  ipcClient.Stop();
+  ipcClient->Stop();
   return 0;
 }

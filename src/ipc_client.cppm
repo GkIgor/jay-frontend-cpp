@@ -41,6 +41,13 @@ public:
     m_running = false;
     if (m_thread.joinable()) m_thread.join();
   }
+  void SendMessage(const std::string& message) {
+    int sock = m_socket;
+    if (sock != -1) {
+      std::string raw = message + "\n";
+      write(sock, raw.c_str(), raw.size());
+    }
+  }
 
 private:
   void RunLoop() {
@@ -52,6 +59,7 @@ private:
         std::this_thread::sleep_for(std::chrono::seconds(2));
         continue;
       }
+      m_socket = sock;
       std::cout << "IPCClient: Conectado ao Core!\n";
       while (m_running) {
         ssize_t bytesRead = read(sock, buffer, sizeof(buffer) - 1);
@@ -67,6 +75,7 @@ private:
         } else
           break;
       }
+      m_socket = -1;
       close(sock);
       std::this_thread::sleep_for(std::chrono::seconds(2));
     }
@@ -86,6 +95,7 @@ private:
   }
   std::shared_ptr<EventDispatcher> m_dispatcher;
   std::atomic<bool> m_running;
+  std::atomic<int> m_socket{-1};
   std::thread m_thread;
   std::string m_socketPath;
 };

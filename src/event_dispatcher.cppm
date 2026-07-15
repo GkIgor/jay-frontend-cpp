@@ -25,6 +25,11 @@ public:
       } else if (type == "animation.play") {
         if (payload.contains("payload") && payload["payload"].contains("animation"))
           m_avatar->PlayAnimation(payload["payload"]["animation"]);
+      } else if (type == "request.permission") {
+        if (payload.contains("payload") && payload["payload"].contains("permission") &&
+            payload["payload"].contains("ref_id")) {
+          m_avatar->PromptPermission(payload["payload"]["permission"], payload["payload"]["ref_id"]);
+        }
       }
     } catch (...) {
     }

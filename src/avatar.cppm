@@ -42,10 +42,37 @@ public:
     m_animations.pop();
     return anim;
   }
+  bool IsPromptingPermission() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_isPromptingPermission;
+  }
+  std::string GetPendingPermission() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_pendingPermission;
+  }
+  std::string GetPendingRefId() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_pendingRefId;
+  }
+  void PromptPermission(const std::string& perm, const std::string& refId) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_isPromptingPermission = true;
+    m_pendingPermission = perm;
+    m_pendingRefId = refId;
+  }
+  void ClearPermissionPrompt() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_isPromptingPermission = false;
+    m_pendingPermission = "";
+    m_pendingRefId = "";
+  }
 
 private:
   mutable std::mutex m_mutex;
   State m_state;
   std::queue<std::string> m_animations;
+  bool m_isPromptingPermission = false;
+  std::string m_pendingPermission;
+  std::string m_pendingRefId;
 };
 }  // namespace jay
