@@ -21,3 +21,13 @@ Sempre que alterar qualquer arquivo de código neste repositório (arquivos `.cp
    ```
 3. **Respeitar a legibilidade e espaçamento**: A configuração do `clang-format` deve sempre respeitar a legibilidade e a semântica de espaçamento em blocos e namespaces. Certifique-se de que o código não fique aglomerado, mantendo quebras de linha lógicas e espaços verticais adequados para leitura humana.
 4. **Desacoplamento Rigoroso**: Nunca tente acessar de forma direta arquivos de fonte ou memória interna do Core. Toda a comunicação deve ocorrer estritamente através de mensagens JSON via Socket UNIX (IPC).
+
+## Processo de Planejamento e Sincronização da Wiki (CRÍTICO)
+
+O planejamento e a execução do agente devem sempre refletir e atualizar a wiki.
+Siga estritamente as regras abaixo:
+
+1. **Plano na Wiki**: Todo progresso de planejamento e evolução do projeto deve ser registrado na wiki local (como em `wiki/phases/`, `wiki/prds/` ou documentação do componente).
+2. **Steps e Subtasks**: Para cada plano em andamento, quebre a execução estruturalmente em *steps*, *tasks* e *subtasks* granulares documentadas na própria wiki (ou em um log vinculado a ela).
+3. **Atualização Pós-Modificação**: Sempre que finalizar uma modificação de código ou comportamento sistêmico, consulte as páginas da wiki correspondentes e atualize-as para garantir que refletem o estado funcional atual.
+4. **Wiki Sempre Atualizada**: A wiki é a fonte primária da verdade. É inaceitável que o código evolua enquanto a documentação fica defasada. A atualização não é uma etapa opcional, mas o pilar obrigatório do seu ciclo contínuo.
