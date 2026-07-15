@@ -2,7 +2,12 @@
 
 ## Wiki-First Rule
 
-Este repositório contém o frontend (corpo visual e auditivo) da Jay IA. A fonte oficial de verdade para arquitetura, protocolos e decisões de design é a wiki na subpasta do Core:
+Este repositório contém o frontend (corpo visual e auditivo) da Jay IA. 
+
+A documentação local (arquitetura C++, build, ADRs de UI e Raylib) está na wiki do próprio Frontend:
+- [Frontend Wiki (`wiki/`)](wiki/index.md)
+
+Para arquitetura sistêmica macro, protocolos JSON-IPC e I/O, a fonte oficial continua sendo a wiki na subpasta do Core:
 - [Core Wiki (`jay-ia/wiki/`)](../jay-ia/wiki/index.md)
 
 ## Como Agentes Devem Trabalhar no C++
