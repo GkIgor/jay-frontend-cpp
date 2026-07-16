@@ -46,24 +46,24 @@ public:
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_isPromptingPermission;
   }
-  std::string GetPendingPermission() const {
+  std::string GetPendingPrompt() const {
     std::lock_guard<std::mutex> lock(m_mutex);
-    return m_pendingPermission;
+    return m_pendingPrompt;
   }
   std::string GetPendingRefId() const {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_pendingRefId;
   }
-  void PromptPermission(const std::string& perm, const std::string& refId) {
+  void PromptPermission(const std::string& prompt, const std::string& refId) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_isPromptingPermission = true;
-    m_pendingPermission = perm;
+    m_pendingPrompt = prompt;
     m_pendingRefId = refId;
   }
   void ClearPermissionPrompt() {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_isPromptingPermission = false;
-    m_pendingPermission = "";
+    m_pendingPrompt = "";
     m_pendingRefId = "";
   }
 
@@ -72,7 +72,7 @@ private:
   State m_state;
   std::queue<std::string> m_animations;
   bool m_isPromptingPermission = false;
-  std::string m_pendingPermission;
+  std::string m_pendingPrompt;
   std::string m_pendingRefId;
 };
 }  // namespace jay

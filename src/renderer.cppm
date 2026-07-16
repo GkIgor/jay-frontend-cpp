@@ -22,16 +22,47 @@ public:
     while (!WindowShouldClose()) {
       // Captura input do modal de permissão caso esteja ativo
       if (m_avatar->IsPromptingPermission()) {
+        bool resolved = false;
+        bool allowed = false;
+        std::string modality = "";
+
+        // 1. Teclado
         if (IsKeyPressed(KEY_Y)) {
-          std::string refId = m_avatar->GetPendingRefId();
-          std::string msg =
-            "{\"type\": \"permission.response\", \"payload\": {\"ref_id\": \"" + refId + "\", \"allowed\": true}}";
-          m_ipcClient->SendMessage(msg);
-          m_avatar->ClearPermissionPrompt();
+          resolved = true;
+          allowed = true;
+          modality = "keyboard";
         } else if (IsKeyPressed(KEY_N)) {
+          resolved = true;
+          allowed = false;
+          modality = "keyboard";
+        }
+
+        // 2. Clique do mouse nos botões do modal
+        if (!resolved && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+          Vector2 mousePos = GetMousePosition();
+          const int mw = 360, mh = 140;
+          const int mx = (GetScreenWidth() / 2) - mw / 2;
+          const int my = (GetScreenHeight() / 2) - mh / 2;
+
+          Rectangle btnAllow = {(float)(mx + 30), (float)(my + 90), 130.0f, 32.0f};
+          Rectangle btnDeny = {(float)(mx + mw - 160), (float)(my + 90), 130.0f, 32.0f};
+
+          if (CheckCollisionPointRec(mousePos, btnAllow)) {
+            resolved = true;
+            allowed = true;
+            modality = "click";
+          } else if (CheckCollisionPointRec(mousePos, btnDeny)) {
+            resolved = true;
+            allowed = false;
+            modality = "click";
+          }
+        }
+
+        if (resolved) {
           std::string refId = m_avatar->GetPendingRefId();
-          std::string msg =
-            "{\"type\": \"permission.response\", \"payload\": {\"ref_id\": \"" + refId + "\", \"allowed\": false}}";
+          std::string allowedStr = allowed ? "true" : "false";
+          std::string msg = "{\"type\": \"permission.response\", \"payload\": {\"ref_id\": \"" + refId +
+                            "\", \"allowed\": " + allowedStr + ", \"modality\": \"" + modality + "\"}}";
           m_ipcClient->SendMessage(msg);
           m_avatar->ClearPermissionPrompt();
         }
@@ -71,15 +102,31 @@ private:
     }
     if (auto anim = m_avatar->ConsumeNextAnimation()) std::cout << "Anim: " << *anim << "\n";
 
-    // Desenha modal simples por cima se houver pedido de permissão ativo
+    // Desenha modal por cima se houver pedido de permissão ativo
     if (m_avatar->IsPromptingPermission()) {
-      const int mw = 320, mh = 120;
+      const int mw = 360, mh = 140;
       const int mx = cx - mw / 2, my = cy - mh / 2;
+
+      // Fundo e Borda do Modal
       DrawRectangle(mx, my, mw, mh, LIGHTGRAY);
       DrawRectangleLines(mx, my, mw, mh, DARKGRAY);
-      DrawText("Permitir Execucao?", mx + 20, my + 15, 20, BLACK);
-      DrawText(m_avatar->GetPendingPermission().c_str(), mx + 20, my + 45, 16, MAROON);
-      DrawText("[Y] Permitir  [N] Negar", mx + 20, my + 80, 16, DARKGRAY);
+
+      DrawText("Solicitacao de Permissao", mx + 15, my + 15, 18, BLACK);
+
+      // Exibe o Prompt explicativo enviado pelo Core
+      DrawText(m_avatar->GetPendingPrompt().c_str(), mx + 15, my + 45, 11, MAROON);
+
+      // Botão Permitir (Verde / Lime)
+      Rectangle btnAllow = {(float)(mx + 30), (float)(my + 90), 130.0f, 32.0f};
+      DrawRectangleRec(btnAllow, LIME);
+      DrawRectangleLinesEx(btnAllow, 1.0f, GREEN);
+      DrawText("Permitir [Y]", mx + 50, my + 98, 14, BLACK);
+
+      // Botão Negar (Vermelho)
+      Rectangle btnDeny = {(float)(mx + mw - 160), (float)(my + 90), 130.0f, 32.0f};
+      DrawRectangleRec(btnDeny, RED);
+      DrawRectangleLinesEx(btnDeny, 1.0f, MAROON);
+      DrawText("Negar [N]", mx + mw - 120, my + 98, 14, WHITE);
     }
   }
 };
