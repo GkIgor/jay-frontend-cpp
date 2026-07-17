@@ -14,7 +14,13 @@ add_executable(jay-frontend src/main.cpp)
 target_sources(jay-frontend
   PUBLIC
     FILE_SET CXX_MODULES FILES
+    src/app_state.cppm
     src/avatar.cppm
+    src/theme.cppm
+    src/text_input.cppm
+    src/tab_bar_renderer.cppm
+    src/avatar_renderer.cppm
+    src/chat_renderer.cppm
     src/event_dispatcher.cppm
     src/ipc_client.cppm
     src/renderer.cppm

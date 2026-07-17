@@ -1,18 +1,18 @@
 #include <iostream>
 #include <memory>
 
-import avatar;
+import app_state;
 import event_dispatcher;
 import ipc_client;
 import renderer;
 
 int main() {
   std::cout << "=== Inicializando Jay Frontend (C++) ===" << std::endl;
-  auto avatar = std::make_shared<jay::Avatar>();
-  auto dispatcher = std::make_shared<jay::EventDispatcher>(avatar);
+  auto state = std::make_shared<jay::ApplicationState>();
+  auto dispatcher = std::make_shared<jay::EventDispatcher>(state);
   auto ipcClient = std::make_shared<jay::IPCClient>(dispatcher);
   ipcClient->Start();
-  jay::Renderer renderer(avatar, ipcClient);
+  jay::Renderer renderer(state, ipcClient);
   renderer.Run();
   ipcClient->Stop();
   return 0;

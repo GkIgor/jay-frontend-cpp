@@ -1,32 +1,39 @@
 module;
 #include <raylib.h>
-
 #include <iostream>
 #include <memory>
 export module renderer;
 
-import avatar;
+import app_state;
 import ipc_client;
+import theme;
+import tab_bar_renderer;
+import avatar_renderer;
+import chat_renderer;
 
 export namespace jay {
+
 class Renderer {
 public:
-  Renderer(std::shared_ptr<Avatar> avatar, std::shared_ptr<IPCClient> ipcClient)
-    : m_avatar(std::move(avatar)), m_ipcClient(std::move(ipcClient)) {}
+  Renderer(std::shared_ptr<ApplicationState> state, std::shared_ptr<IPCClient> ipcClient)
+    : m_state(std::move(state)), m_ipcClient(std::move(ipcClient)), m_activeTab(0) {}
+
   ~Renderer() {
     if (IsWindowReady()) CloseWindow();
   }
+
   void Run() {
-    InitWindow(400, 400, "Jay Frontend");
+    InitWindow(600, 550, "Jay Frontend");
     SetTargetFPS(60);
+
     while (!WindowShouldClose()) {
-      // Captura input do modal de permissão caso esteja ativo
-      if (m_avatar->IsPromptingPermission()) {
+      // 1. Processa input de bloqueio do Modal de Permissão se estiver ativo
+      if (m_state->IsPromptingPermission()) {
         bool resolved = false;
         bool allowed = false;
         std::string modality = "";
 
-        // 1. Teclado
+        // Teclado
         if (IsKeyPressed(KEY_Y)) {
           resolved = true;
           allowed = true;
@@ -37,7 +44,7 @@ public:
           modality = "keyboard";
         }
 
-        // 2. Clique do mouse nos botões do modal
+        // Mouse click nos botões do modal
         if (!resolved && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
           Vector2 mousePos = GetMousePosition();
           const int mw = 360, mh = 140;
@@ -59,75 +66,72 @@ public:
         }
 
         if (resolved) {
-          std::string refId = m_avatar->GetPendingRefId();
+          std::string refId = m_state->GetPendingRefId();
           std::string allowedStr = allowed ? "true" : "false";
           std::string msg = "{\"type\": \"permission.response\", \"payload\": {\"ref_id\": \"" + refId +
                             "\", \"allowed\": " + allowedStr + ", \"modality\": \"" + modality + "\"}}";
           m_ipcClient->SendMessage(msg);
-          m_avatar->ClearPermissionPrompt();
+          m_state->ClearPermissionPrompt();
         }
       }
 
+      // 2. Renderização
       BeginDrawing();
-      ClearBackground(RAYWHITE);
-      DrawAvatarState();
+      ClearBackground(Theme::Background);
+
+      // Renderiza e atualiza barra de abas superiores
+      m_activeTab = m_tabBarRenderer.UpdateAndDraw(m_activeTab, GetScreenWidth());
+
+      // Renderiza aba correspondente
+      if (m_activeTab == 0) {
+        m_avatarRenderer.Draw(m_state, GetScreenWidth(), GetScreenHeight());
+      } else {
+        m_chatRenderer.Draw(m_state, m_ipcClient, GetScreenWidth(), GetScreenHeight());
+      }
+
+      // Renderiza o Modal de Permissão se estiver ativo por cima de tudo
+      if (m_state->IsPromptingPermission()) {
+        DrawPermissionModal();
+      }
+
       EndDrawing();
     }
   }
 
 private:
-  std::shared_ptr<Avatar> m_avatar;
+  std::shared_ptr<ApplicationState> m_state;
   std::shared_ptr<IPCClient> m_ipcClient;
+  int m_activeTab; // 0 = Avatar, 1 = Chat
 
-  void DrawAvatarState() {
-    State currentState = m_avatar->GetState();
-    const int cx = GetScreenWidth() / 2, cy = GetScreenHeight() / 2;
-    switch (currentState) {
-      case State::Idle:
-        DrawCircle(cx, cy, 50.0f, LIGHTGRAY);
-        DrawText("Jay (Idle)", cx - 40, cy + 70, 20, DARKGRAY);
-        break;
-      case State::Thinking:
-        DrawCircle(cx, cy, 50.0f, ORANGE);
-        DrawText("Jay (Thinking...)", cx - 70, cy + 70, 20, DARKGRAY);
-        break;
-      case State::Executing:
-        DrawCircle(cx, cy, 50.0f, GREEN);
-        DrawText("Jay (Executing)", cx - 60, cy + 70, 20, DARKGRAY);
-        break;
-      case State::Sleeping:
-        DrawCircle(cx, cy, 50.0f, DARKBLUE);
-        DrawText("Jay (Sleeping)", cx - 60, cy + 70, 20, LIGHTGRAY);
-        break;
-    }
-    if (auto anim = m_avatar->ConsumeNextAnimation()) std::cout << "Anim: " << *anim << "\n";
+  TabBarRenderer m_tabBarRenderer;
+  AvatarRenderer m_avatarRenderer;
+  ChatRenderer m_chatRenderer;
 
-    // Desenha modal por cima se houver pedido de permissão ativo
-    if (m_avatar->IsPromptingPermission()) {
-      const int mw = 360, mh = 140;
-      const int mx = cx - mw / 2, my = cy - mh / 2;
+  void DrawPermissionModal() {
+    const int cx = GetScreenWidth() / 2;
+    const int cy = GetScreenHeight() / 2;
+    const int mw = 360, mh = 140;
+    const int mx = cx - mw / 2, my = cy - mh / 2;
 
-      // Fundo e Borda do Modal
-      DrawRectangle(mx, my, mw, mh, LIGHTGRAY);
-      DrawRectangleLines(mx, my, mw, mh, DARKGRAY);
+    // Fundo e bordas do modal
+    DrawRectangle(mx, my, mw, mh, Theme::Panel);
+    DrawRectangleLines(mx, my, mw, mh, Theme::Border);
 
-      DrawText("Solicitacao de Permissao", mx + 15, my + 15, 18, BLACK);
+    DrawText("Solicitação de Permissão", mx + 15, my + 15, 16, Theme::TextMain);
 
-      // Exibe o Prompt explicativo enviado pelo Core
-      DrawText(m_avatar->GetPendingPrompt().c_str(), mx + 15, my + 45, 11, MAROON);
+    // Ajusta visualização do prompt
+    DrawText(m_state->GetPendingPrompt().c_str(), mx + 15, my + 45, 11, Theme::TextSec);
 
-      // Botão Permitir (Verde / Lime)
-      Rectangle btnAllow = {(float)(mx + 30), (float)(my + 90), 130.0f, 32.0f};
-      DrawRectangleRec(btnAllow, LIME);
-      DrawRectangleLinesEx(btnAllow, 1.0f, GREEN);
-      DrawText("Permitir [Y]", mx + 50, my + 98, 14, BLACK);
+    // Botão Permitir (Verde / Allow)
+    Rectangle btnAllow = {(float)(mx + 30), (float)(my + 90), 130.0f, 32.0f};
+    DrawRectangleRec(btnAllow, Theme::AllowBtn);
+    DrawText("Permitir [Y]", mx + 54, my + 98, 12, WHITE);
 
-      // Botão Negar (Vermelho)
-      Rectangle btnDeny = {(float)(mx + mw - 160), (float)(my + 90), 130.0f, 32.0f};
-      DrawRectangleRec(btnDeny, RED);
-      DrawRectangleLinesEx(btnDeny, 1.0f, MAROON);
-      DrawText("Negar [N]", mx + mw - 120, my + 98, 14, WHITE);
-    }
+    // Botão Negar (Vermelho / Deny)
+    Rectangle btnDeny = {(float)(mx + mw - 160), (float)(my + 90), 130.0f, 32.0f};
+    DrawRectangleRec(btnDeny, Theme::DenyBtn);
+    DrawText("Negar [N]", mx + mw - 120, my + 98, 12, WHITE);
   }
 };
-}  // namespace jay
+
+} // namespace jay
