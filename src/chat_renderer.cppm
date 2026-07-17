@@ -20,28 +20,29 @@ class ChatRenderer {
 public:
   ChatRenderer() : m_cmdCounter(1), m_scrollOffset(0.0f) {}
 
-  void Draw(const std::shared_ptr<ApplicationState>& state, const std::shared_ptr<IPCClient>& ipcClient, int screenWidth, int screenHeight) {
-    const int tabHeight = 50;
-    const int inputHeight = 60;
+  void Draw(const std::shared_ptr<ApplicationState>& state, const std::shared_ptr<IPCClient>& ipcClient, Font font, int screenWidth, int screenHeight) {
+    const int tabHeight = 60;   // Aumentado proporcionalmente para a nova tela
+    const int inputHeight = 80;  // Altura maior para a barra de input
     const int chatAreaHeight = screenHeight - tabHeight - inputHeight;
 
     // 1. Trata Scroll por rodinha do mouse e teclado (Setas)
     float wheel = GetMouseWheelMove();
     if (wheel != 0) {
-      m_scrollOffset += wheel * 24.0f;
+      m_scrollOffset += wheel * 36.0f;
     }
     if (IsKeyDown(KEY_UP)) {
-      m_scrollOffset += 4.0f;
+      m_scrollOffset += 6.0f;
     }
     if (IsKeyDown(KEY_DOWN)) {
-      m_scrollOffset -= 4.0f;
+      m_scrollOffset -= 6.0f;
     }
 
     // 2. Calcula as posições dos balões de mensagens
     std::vector<ChatMessage> messages = state->GetChatFeed();
-    int fontSize = 12;
-    int maxBubbleWidth = 320;
-    int spacingBetweenBubbles = 12;
+    float fontSize = 18.0f; // Fonte bem maior e nítida
+    float labelFontSize = 12.0f;
+    int maxBubbleWidth = 640; // Muito mais espaço horizontal na tela dupla
+    int spacingBetweenBubbles = 20;
 
     struct RenderBubble {
       Rectangle rect;
@@ -53,23 +54,23 @@ public:
     };
 
     std::vector<RenderBubble> renderList;
-    int currentY = tabHeight + 20;
+    int currentY = tabHeight + 25;
 
     for (const auto& msg : messages) {
-      std::vector<std::string> wrappedLines = WrapText(msg.text, maxBubbleWidth - 24, fontSize);
-      int bubbleHeight = wrappedLines.size() * 16 + 20;
+      std::vector<std::string> wrappedLines = WrapText(font, msg.text, maxBubbleWidth - 32, fontSize);
+      int bubbleHeight = wrappedLines.size() * 24 + 20;
       int bubbleWidth = 0;
 
       for (const auto& line : wrappedLines) {
-        int w = MeasureText(line.c_str(), fontSize);
-        if (w > bubbleWidth) {
-          bubbleWidth = w;
+        Vector2 sz = MeasureTextEx(font, line.c_str(), fontSize, 1.0f);
+        if ((int)sz.x > bubbleWidth) {
+          bubbleWidth = (int)sz.x;
         }
       }
-      bubbleWidth += 24; // Padding lateral
+      bubbleWidth += 32; // Padding lateral extra
 
       bool isUser = (msg.sender == "user");
-      int x = isUser ? (screenWidth - bubbleWidth - 20) : 20;
+      int x = isUser ? (screenWidth - bubbleWidth - 40) : 40;
 
       Color bColor = Theme::JayBubble;
       Color tColor = Theme::TextMain;
@@ -102,10 +103,10 @@ public:
     }
 
     // Calcula o scroll automático para manter no fundo se não houver rolagem manual
-    int totalFeedHeight = currentY - (tabHeight + 20);
+    int totalFeedHeight = currentY - (tabHeight + 25);
     float minScroll = 0.0f;
-    if (totalFeedHeight > chatAreaHeight - 40) {
-      minScroll = (float)(chatAreaHeight - 40 - totalFeedHeight);
+    if (totalFeedHeight > chatAreaHeight - 50) {
+      minScroll = (float)(chatAreaHeight - 50 - totalFeedHeight);
     }
     // Impede o usuário de rolar além dos limites
     if (m_scrollOffset > 0.0f) m_scrollOffset = 0.0f;
@@ -127,15 +128,17 @@ public:
       // Só renderiza se estiver minimamente visível na área de corte
       if (scrolledRect.y + scrolledRect.height > tabHeight && scrolledRect.y < screenHeight - inputHeight) {
         // Fundo do balão
-        DrawRectangleRounded(scrolledRect, 0.25f, 4, bubble.bubbleColor);
-        // Pequena etiqueta de cabeçalho do balão
-        DrawText(bubble.label.c_str(), scrolledRect.x + 10, scrolledRect.y - 12, 9, Theme::TextSec);
+        DrawRectangleRounded(scrolledRect, 0.2f, 4, bubble.bubbleColor);
+        // Pequena etiqueta de cabeçalho do balão com fontes anti-aliased
+        Vector2 labelPos = {scrolledRect.x + 10, scrolledRect.y - 15};
+        DrawTextEx(font, bubble.label.c_str(), labelPos, labelFontSize, 1.0f, Theme::TextSec);
 
         // Texto interno
         int lineY = scrolledRect.y + 10;
         for (const auto& line : bubble.lines) {
-          DrawText(line.c_str(), scrolledRect.x + 12, lineY, fontSize, bubble.textColor);
-          lineY += 16;
+          Vector2 textPos = {scrolledRect.x + 16, (float)lineY};
+          DrawTextEx(font, line.c_str(), textPos, fontSize, 1.0f, bubble.textColor);
+          lineY += 24;
         }
       }
     }
@@ -148,30 +151,47 @@ public:
     DrawLine(0, iy, screenWidth, iy, Theme::Border);
 
     // Borda da caixa de texto
-    Rectangle inputField = {20.0f, (float)(iy + 14), (float)(screenWidth - 130), 32.0f};
+    Rectangle inputField = {40.0f, (float)(iy + 19), (float)(screenWidth - 220), 42.0f};
     DrawRectangleRec(inputField, Theme::Background);
-    DrawRectangleLinesEx(inputField, 1.0f, Theme::Border);
+
+    // Desenha borda com glow se o texto estiver totalmente selecionado (Ctrl+A)
+    if (m_textInput.IsSelectedAll()) {
+      DrawRectangleRec(inputField, GetColor(0x1F293788)); // Fundo de seleção azul/cinza translúcido
+      DrawRectangleLinesEx(inputField, 1.5f, Theme::Glow);
+    } else {
+      DrawRectangleLinesEx(inputField, 1.0f, Theme::Border);
+    }
 
     // Lê o input do teclado UTF-8
     m_textInput.Update();
 
     // Desenha o texto digitado
     std::string currentText = m_textInput.GetText();
-    DrawText(currentText.c_str(), inputField.x + 10, inputField.y + 10, 14, Theme::TextMain);
+    float inputTextSize = 18.0f;
+    Vector2 inputTextPos = {inputField.x + 12, inputField.y + 12};
+    DrawTextEx(font, currentText.c_str(), inputTextPos, inputTextSize, 1.0f, Theme::TextMain);
 
     // Cursor piscante
     if (((int)(GetTime() * 2) % 2) == 0) {
-      int cursorOffset = MeasureText(currentText.c_str(), 14);
-      DrawRectangle(inputField.x + 12 + cursorOffset, inputField.y + 8, 2, 16, Theme::Glow);
+      Vector2 textDim = MeasureTextEx(font, currentText.c_str(), inputTextSize, 1.0f);
+      DrawRectangle(inputField.x + 14 + (int)textDim.x, inputField.y + 10, 2, 22, Theme::Glow);
     }
 
     // Botão Enviar
-    Rectangle sendBtn = {(float)(screenWidth - 100), (float)(iy + 14), 80.0f, 32.0f};
+    Rectangle sendBtn = {(float)(screenWidth - 150), (float)(iy + 19), 110.0f, 42.0f};
     Vector2 mousePos = GetMousePosition();
     bool sendHovered = CheckCollisionPointRec(mousePos, sendBtn);
 
     DrawRectangleRounded(sendBtn, 0.2f, 4, sendHovered ? Theme::Glow : Theme::UserBubble);
-    DrawText("ENVIAR", sendBtn.x + 16, sendBtn.y + 10, 12, WHITE);
+    
+    // Label do botão enviar centralizada
+    float sendBtnFontSize = 14.0f;
+    Vector2 sendTextDim = MeasureTextEx(font, "ENVIAR", sendBtnFontSize, 1.0f);
+    Vector2 sendTextPos = {
+      sendBtn.x + (sendBtn.width / 2) - (sendTextDim.x / 2),
+      sendBtn.y + (sendBtn.height / 2) - (sendTextDim.y / 2)
+    };
+    DrawTextEx(font, "ENVIAR", sendTextPos, sendBtnFontSize, 1.0f, WHITE);
 
     // Envio de mensagem
     bool triggerSend = false;
@@ -209,8 +229,8 @@ private:
   int m_cmdCounter;
   float m_scrollOffset;
 
-  // Função utilitária para wrapping de texto Raylib por largura de pixel
-  std::vector<std::string> WrapText(const std::string& text, int maxWidth, int fontSize) {
+  // Função utilitária para wrapping de texto Raylib por largura de pixel usando a fonte anti-aliased
+  std::vector<std::string> WrapText(Font font, const std::string& text, int maxWidth, float fontSize) {
     std::vector<std::string> lines;
     std::string currentLine = "";
     std::string word = "";
@@ -225,7 +245,8 @@ private:
       }
       if (c == ' ') {
         std::string testLine = currentLine + word + " ";
-        if (MeasureText(testLine.c_str(), fontSize) > maxWidth) {
+        Vector2 size = MeasureTextEx(font, testLine.c_str(), fontSize, 1.0f);
+        if (size.x > maxWidth) {
           lines.push_back(currentLine);
           currentLine = word + " ";
         } else {
@@ -239,7 +260,8 @@ private:
 
     if (!word.empty() || !currentLine.empty()) {
       std::string testLine = currentLine + word;
-      if (MeasureText(testLine.c_str(), fontSize) > maxWidth) {
+      Vector2 size = MeasureTextEx(font, testLine.c_str(), fontSize, 1.0f);
+      if (size.x > maxWidth) {
         lines.push_back(currentLine);
         lines.push_back(word);
       } else {

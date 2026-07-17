@@ -15,19 +15,19 @@ class AvatarRenderer {
 public:
   AvatarRenderer() = default;
 
-  void Draw(const std::shared_ptr<ApplicationState>& state, int screenWidth, int screenHeight) {
+  void Draw(const std::shared_ptr<ApplicationState>& state, Font font, int screenWidth, int screenHeight) {
     State currentState = state->GetState();
     const int cx = screenWidth / 2;
-    const int cy = screenHeight / 2 + 25; // Compensa a tab bar
+    const int cy = screenHeight / 2 + 30; // Compensa a nova tab bar (60px)
 
     // Sine-wave pulse baseada no tempo do jogo/programa
     float time = GetTime();
-    float pulse = sinf(time * 4.0f) * 8.0f;
-    float pulseFast = sinf(time * 12.0f) * 12.0f;
+    float pulse = sinf(time * 4.0f) * 16.0f; // Dobrado a pulsação
+    float pulseFast = sinf(time * 12.0f) * 24.0f;
 
     Color coreColor = Theme::Idle;
     std::string stateLabel = "JAY (IDLE)";
-    float radius = 60.0f;
+    float radius = 120.0f; // Dobrado o tamanho do avatar (de 60 para 120)
     float pulseAmount = pulse;
 
     switch (currentState) {
@@ -49,20 +49,21 @@ public:
       case State::Sleeping:
         coreColor = Theme::Sleeping;
         stateLabel = "DORMINDO";
-        pulseAmount = sinf(time * 1.5f) * 4.0f; // Pulso super lento
+        pulseAmount = sinf(time * 1.5f) * 8.0f; // Pulso super lento
         break;
     }
 
     // Desenha efeito de brilho com círculos concêntricos e transparência decrescente
-    DrawCircle(cx, cy, radius + pulseAmount + 40, ColorAlpha(coreColor, 0.05f));
-    DrawCircle(cx, cy, radius + pulseAmount + 20, ColorAlpha(coreColor, 0.15f));
+    DrawCircle(cx, cy, radius + pulseAmount + 80, ColorAlpha(coreColor, 0.05f));
+    DrawCircle(cx, cy, radius + pulseAmount + 40, ColorAlpha(coreColor, 0.15f));
     DrawCircle(cx, cy, radius + pulseAmount, ColorAlpha(coreColor, 0.40f));
-    DrawCircle(cx, cy, radius - 10, coreColor); // Núcleo sólido
+    DrawCircle(cx, cy, radius - 20, coreColor); // Núcleo sólido
 
-    // Texto de status do Avatar
-    int fontSize = 20;
-    int textLen = MeasureText(stateLabel.c_str(), fontSize);
-    DrawText(stateLabel.c_str(), cx - textLen / 2, cy + radius + 60, fontSize, Theme::TextMain);
+    // Texto de status do Avatar com fontes anti-aliased
+    float fontSize = 32.0f; // Aumentado de 20 para 32
+    Vector2 textDim = MeasureTextEx(font, stateLabel.c_str(), fontSize, 1.0f);
+    Vector2 textPos = {(float)(cx - (int)textDim.x / 2), (float)(cy + radius + 100)};
+    DrawTextEx(font, stateLabel.c_str(), textPos, fontSize, 1.0f, Theme::TextMain);
 
     // Consome animações e imprime no log do console se houver
     if (auto anim = state->ConsumeNextAnimation()) {
