@@ -153,14 +153,7 @@ public:
     // Borda da caixa de texto
     Rectangle inputField = {40.0f, (float)(iy + 19), (float)(screenWidth - 220), 42.0f};
     DrawRectangleRec(inputField, Theme::Background);
-
-    // Desenha borda com glow se o texto estiver totalmente selecionado (Ctrl+A)
-    if (m_textInput.IsSelectedAll()) {
-      DrawRectangleRec(inputField, GetColor(0x1F293788)); // Fundo de seleção azul/cinza translúcido
-      DrawRectangleLinesEx(inputField, 1.5f, Theme::Glow);
-    } else {
-      DrawRectangleLinesEx(inputField, 1.0f, Theme::Border);
-    }
+    DrawRectangleLinesEx(inputField, 1.0f, Theme::Border);
 
     // Lê o input do teclado UTF-8
     m_textInput.Update();
@@ -169,6 +162,19 @@ public:
     std::string currentText = m_textInput.GetText();
     float inputTextSize = 18.0f;
     Vector2 inputTextPos = {inputField.x + 12, inputField.y + 12};
+
+    // Desenha fundo de seleção cobrindo APENAS a largura ocupada pelo texto
+    if (m_textInput.IsSelectedAll() && !currentText.empty()) {
+      Vector2 textDim = MeasureTextEx(font, currentText.c_str(), inputTextSize, 1.0f);
+      Rectangle selectionRect = {
+        inputField.x + 10,
+        inputField.y + 9,
+        textDim.x + 4,
+        24.0f
+      };
+      DrawRectangleRec(selectionRect, GetColor(0x1F6FEB88)); // Fundo azul de seleção translúcido
+    }
+
     DrawTextEx(font, currentText.c_str(), inputTextPos, inputTextSize, 1.0f, Theme::TextMain);
 
     // Cursor piscante
