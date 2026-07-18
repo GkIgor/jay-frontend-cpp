@@ -56,13 +56,17 @@ public:
       int startChar = std::min(selectionStartChar, selectionEndChar);
       int endChar   = std::max(selectionStartChar, selectionEndChar);
       int charAbsIdx = 0;
+      std::string measureBuffer;
+      measureBuffer.reserve(256);
       for (size_t l = 0; l < bubble.lines.size(); ++l) {
         const auto& line = bubble.lines[l];
         int lineY = scrolledRect.y + 10 + l * 24;
         for (size_t i = 0; i < line.length(); ++i) {
           if (charAbsIdx >= startChar && charAbsIdx < endChar) {
-            float x1 = MeasureTextEx(font, line.substr(0, i).c_str(), fontSize, 1.0f).x;
-            float x2 = MeasureTextEx(font, line.substr(0, i + 1).c_str(), fontSize, 1.0f).x;
+            measureBuffer.assign(line, 0, i);
+            float x1 = MeasureTextEx(font, measureBuffer.c_str(), fontSize, 1.0f).x;
+            measureBuffer.assign(line, 0, i + 1);
+            float x2 = MeasureTextEx(font, measureBuffer.c_str(), fontSize, 1.0f).x;
             Color hlColor = bubble.isUser ? GetColor(0xFFFFFF44) : GetColor(0x1F6FEB88);
             DrawRectangleRec({scrolledRect.x + 16 + x1, (float)lineY, x2 - x1, 24.0f}, hlColor);
           }
