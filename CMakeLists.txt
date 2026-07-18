@@ -37,3 +37,9 @@ target_sources(jay-frontend
     src/app/application.cppm
 )
 target_link_libraries(jay-frontend PRIVATE raylib nlohmann_json::nlohmann_json pthread)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_options(jay-frontend PRIVATE -g -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(jay-frontend PRIVATE -fsanitize=address)
+endif()
+
