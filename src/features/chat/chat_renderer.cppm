@@ -101,7 +101,8 @@ public:
 
     for (size_t i = 0; i < messages.size(); ++i) {
       const auto& msg = messages[i];
-      std::vector<std::string> wrappedLines = WrapText(font, msg.text, maxBubbleWidth - 32, fontSize);
+      std::string trimmedText = Trim(msg.text);
+      std::vector<std::string> wrappedLines = WrapText(font, trimmedText, maxBubbleWidth - 32, fontSize);
       int bubbleHeight = wrappedLines.size() * 24 + 20;
       int bubbleWidth = 0;
 
@@ -141,7 +142,7 @@ public:
         wrappedLines,
         isUser,
         label,
-        msg.text,
+        trimmedText,
         false,
         (int)i
       });
@@ -293,6 +294,13 @@ private:
       }
     }
     return lines;
+  }
+
+  std::string Trim(const std::string& str) {
+    size_t first = str.find_first_not_of(" \t\n\r");
+    if (first == std::string::npos) return "";
+    size_t last = str.find_last_not_of(" \t\n\r");
+    return str.substr(first, (last - first + 1));
   }
 };
 
