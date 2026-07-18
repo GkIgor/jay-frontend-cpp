@@ -103,8 +103,6 @@ private:
     while (!str.empty()) {
       unsigned char c = str.back();
       str.pop_back();
-      // Em UTF-8, bytes de continuação começam com bits 10xxxxxx (0x80 a 0xBF).
-      // Se o byte não for de continuação, removemos o cabeçalho do caractere e paramos.
       if ((c & 0xC0) != 0x80) {
         break;
       }

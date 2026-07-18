@@ -1,20 +1,21 @@
 module;
 #include <raylib.h>
 #include <string>
-export module tab_bar_renderer;
+#include <vector>
+export module tab_bar;
 
 import theme;
 
 export namespace jay {
 
-class TabBarRenderer {
+class TabBar {
 public:
-  TabBarRenderer() = default;
+  TabBar() = default;
 
-  // Renderiza a barra de abas superior e retorna o novo índice selecionado caso haja clique
-  int UpdateAndDraw(int currentTab, int screenWidth, Font font) {
-    const int tabHeight = 60; // Aumentado proporcionalmente para a nova tela
-    const int tabWidth = screenWidth / 2;
+  static int UpdateAndDraw(int currentTab, int screenWidth, Font font, const std::vector<std::string>& labels) {
+    const int tabHeight = 60;
+    if (labels.empty()) return currentTab;
+    const int tabWidth = screenWidth / (int)labels.size();
 
     // Fundo da barra
     DrawRectangle(0, 0, screenWidth, tabHeight, Theme::Panel);
@@ -23,7 +24,7 @@ public:
     int clickedTab = currentTab;
     Vector2 mousePos = GetMousePosition();
 
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < (int)labels.size(); ++i) {
       Rectangle tabRect = {(float)(i * tabWidth), 0.0f, (float)tabWidth, (float)tabHeight};
       bool isHovered = CheckCollisionPointRec(mousePos, tabRect);
       bool isActive = (currentTab == i);
@@ -43,14 +44,13 @@ public:
       }
 
       // Texto da Aba
-      std::string text = (i == 0) ? "AVATAR" : "CHAT";
-      float fontSize = 20.0f; // Fonte maior para a tela maior
-      Vector2 textDim = MeasureTextEx(font, text.c_str(), fontSize, 1.0f);
+      float fontSize = 20.0f;
+      Vector2 textDim = MeasureTextEx(font, labels[i].c_str(), fontSize, 1.0f);
       int tx = i * tabWidth + (tabWidth / 2) - ((int)textDim.x / 2);
       int ty = (tabHeight / 2) - ((int)textDim.y / 2);
 
       Vector2 textPos = {(float)tx, (float)ty};
-      DrawTextEx(font, text.c_str(), textPos, fontSize, 1.0f, isActive ? Theme::TextMain : Theme::TextSec);
+      DrawTextEx(font, labels[i].c_str(), textPos, fontSize, 1.0f, isActive ? Theme::TextMain : Theme::TextSec);
     }
 
     return clickedTab;

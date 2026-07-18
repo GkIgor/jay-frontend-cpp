@@ -16,6 +16,7 @@ export module ipc_client;
 import event_dispatcher;
 
 export namespace jay {
+
 class IPCClient {
 public:
   explicit IPCClient(std::shared_ptr<EventDispatcher> dispatcher)
@@ -32,15 +33,18 @@ public:
     }
   }
   ~IPCClient() { Stop(); }
+  
   void Start() {
     if (m_running) return;
     m_running = true;
     m_thread = std::thread(&IPCClient::RunLoop, this);
   }
+  
   void Stop() {
     m_running = false;
     if (m_thread.joinable()) m_thread.join();
   }
+  
   void SendMessage(const std::string& message) {
     int sock = m_socket;
     if (sock != -1) {
@@ -80,6 +84,7 @@ private:
       std::this_thread::sleep_for(std::chrono::seconds(2));
     }
   }
+  
   int ConnectSocket() {
     int sock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sock < 0) return -1;
@@ -93,10 +98,12 @@ private:
     }
     return sock;
   }
+  
   std::shared_ptr<EventDispatcher> m_dispatcher;
   std::atomic<bool> m_running;
   std::atomic<int> m_socket{-1};
   std::thread m_thread;
   std::string m_socketPath;
 };
-}  // namespace jay
+
+} // namespace jay

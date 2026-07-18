@@ -14,15 +14,24 @@ add_executable(jay-frontend src/main.cpp)
 target_sources(jay-frontend
   PUBLIC
     FILE_SET CXX_MODULES FILES
-    src/app_state.cppm
-    src/avatar.cppm
-    src/theme.cppm
-    src/text_input.cppm
-    src/tab_bar_renderer.cppm
-    src/avatar_renderer.cppm
-    src/chat_renderer.cppm
-    src/event_dispatcher.cppm
-    src/ipc_client.cppm
-    src/renderer.cppm
+    src/app/theme.cppm
+    src/features/avatar/avatar_state.cppm
+    src/features/chat/chat_state.cppm
+    src/features/permissions/permission_state.cppm
+    src/app/app_state.cppm
+    src/shared/widgets/text_input.cppm
+    src/shared/widgets/scroll_view.cppm
+    src/shared/widgets/tab_bar.cppm
+    src/ipc/ipc_client.cppm
+    src/ipc/event_dispatcher.cppm
+    src/features/avatar/avatar_renderer.cppm
+    src/features/chat/message_bubble.cppm
+    src/features/chat/chat_events.cppm
+    src/features/chat/chat_input.cppm
+    src/features/chat/chat_renderer.cppm
+    src/features/permissions/permission_modal.cppm
+    src/app/renderer.cppm
+    src/app/main_window.cppm
+    src/app/application.cppm
 )
 target_link_libraries(jay-frontend PRIVATE raylib nlohmann_json::nlohmann_json pthread)
