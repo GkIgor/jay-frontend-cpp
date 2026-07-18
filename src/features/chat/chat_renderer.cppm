@@ -25,7 +25,7 @@ export namespace jay {
 
 class ChatRenderer {
 public:
-  ChatRenderer() : m_cmdCounter(1), m_prevMinScroll(0.0f) {}
+  ChatRenderer() : m_cmdCounter(1), m_prevMinScroll(0.0f), m_prevInputText("") {}
 
   void Draw(const std::shared_ptr<ApplicationState>& state, const std::shared_ptr<IPCClient>& ipcClient, Font font, int screenWidth, int screenHeight) {
     const int tabHeight = 60;
@@ -43,7 +43,7 @@ public:
     int dynamicInputHeight = 80 + (visibleInputLines - 1) * stepY;
     int chatAreaHeight = screenHeight - tabHeight - dynamicInputHeight;
 
-    // Trata Scroll por rodinha do mouse
+    // Trata Scroll por rodinha do mouse (aumentada a sensibilidade de 36.0f para 48.0f)
     float wheel = GetMouseWheelMove();
     Vector2 mousePos = GetMousePosition();
     
@@ -57,11 +57,9 @@ public:
       if (isMouseOverInput && inputLines > 10) {
         // Scroll do input por mouse wheel
         m_events.m_inputScrollOffset -= wheel * 18.0f;
-        float maxInputScroll = (inputLines - 10) * stepY;
-        if (m_events.m_inputScrollOffset < 0.0f) m_events.m_inputScrollOffset = 0.0f;
-        if (m_events.m_inputScrollOffset > maxInputScroll) m_events.m_inputScrollOffset = maxInputScroll;
       } else {
-        m_events.m_scrollOffset += wheel * 36.0f;
+        // Scroll do chat por mouse wheel (mais sensível a 48.0f por clique)
+        m_events.m_scrollOffset += wheel * 48.0f;
       }
     }
     if (IsKeyDown(KEY_UP)) {
@@ -71,16 +69,25 @@ public:
       m_events.m_scrollOffset -= 6.0f;
     }
 
-    // Auto-ajusta o scroll do input ao digitar ou deletar linhas para manter cursor visível
+    // Auto-ajusta o scroll do input de forma inteligente (apenas quando o texto mudar, para evitar snap back)
     float maxInputScroll = std::max(0.0f, (inputLines - 10) * stepY);
-    m_events.m_inputScrollOffset = std::min(m_events.m_inputScrollOffset, maxInputScroll);
-    if (inputLines > 10) {
-      // Força o scroll a descer se o cursor passar da base da caixa de texto
-      float cursorYOffset = (inputLines - 1) * stepY;
-      if (cursorYOffset >= m_events.m_inputScrollOffset + 10 * stepY) {
-        m_events.m_inputScrollOffset = (inputLines - 10) * stepY;
+    if (currentText != m_prevInputText) {
+      m_events.m_inputScrollOffset = std::min(m_events.m_inputScrollOffset, maxInputScroll);
+      if (inputLines > 10) {
+        // Se o cursor estiver abaixo da área visível do input, desce o scroll
+        float cursorYOffset = (inputLines - 1) * stepY;
+        if (cursorYOffset >= m_events.m_inputScrollOffset + 10 * stepY) {
+          m_events.m_inputScrollOffset = (inputLines - 10) * stepY;
+        }
       }
+      m_prevInputText = currentText;
     }
+
+    // Mantém o scroll do input travado nos limites corretos
+    m_events.m_inputScrollOffset = std::clamp(m_events.m_inputScrollOffset, 0.0f, maxInputScroll);
+
+    // Permite arraste do mouse (slide) na barra de rolagem interna do input
+    m_events.HandleInputScrollbarDrag(inputLines, stepY, inputField, mousePos);
 
     // 2. Calcula as posições dos balões de mensagens
     std::vector<ChatMessage> messages = state->chat.GetChatFeed();
@@ -163,7 +170,7 @@ public:
       currentY += bubbleHeight + 22 + spacingBetweenBubbles;
     }
 
-    // Auto-scroll inteligente: apenas desce se a última msg for do usuário ou se ele já estava na base
+    // Auto-scroll inteligente
     int totalFeedHeight = currentY - (tabHeight + 25);
     float minScroll = 0.0f;
     if (totalFeedHeight > chatAreaHeight - 50) {
@@ -180,7 +187,7 @@ public:
       m_events.m_prevMsgCount = messages.size();
     }
 
-    // Limites de scroll manual
+    // Limites de scroll manual do chat
     if (m_events.m_scrollOffset > 0.0f) m_events.m_scrollOffset = 0.0f;
     if (m_events.m_scrollOffset < minScroll) m_events.m_scrollOffset = minScroll;
 
@@ -190,7 +197,7 @@ public:
     m_events.HandleMouseClicks(font, fontSize, renderList, mousePos, isMousePressed, isMouseDown);
     m_events.HandleKeyboardCopy(renderList);
 
-    // Permite arraste do mouse (slide) na barra de rolagem
+    // Permite arraste do mouse (slide) na barra de rolagem principal
     m_events.HandleScrollbarDrag((float)totalFeedHeight, (float)chatAreaHeight - 50, (float)tabHeight, screenWidth, mousePos);
 
     // 3. Renderiza a área de chat recortando conteúdos fora do limite (Scissor)
@@ -215,7 +222,7 @@ public:
 
     ChatInput::Draw(font, m_textInput, screenWidth, screenHeight, iy, dynamicInputHeight, inputLines, visibleInputLines, blockShortcuts, mousePos, triggerSend, ctrlPressed, isThinkingOrExecuting, m_events.m_inputScrollOffset);
 
-    // Bloqueia disparos de comandos se já há processamento ativo ( Thinking ou Executing )
+    // Bloqueia disparos de comandos se já há processamento ativo
     if (triggerSend && !m_textInput.IsEmpty() && !isThinkingOrExecuting) {
       std::string text = m_textInput.GetText();
       m_textInput.Clear();
@@ -244,6 +251,7 @@ private:
   ChatEvents m_events;
   int m_cmdCounter;
   float m_prevMinScroll;
+  std::string m_prevInputText;
 
   // Função utilitária para wrapping de texto Raylib por largura de pixel usando a fonte anti-aliased
   std::vector<std::string> WrapText(Font font, const std::string& text, int maxWidth, float fontSize) {

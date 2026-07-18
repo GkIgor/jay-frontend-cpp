@@ -25,6 +25,9 @@ public:
   // Estados de rolagem e drag (ADR-001 UX)
   bool m_isDraggingScrollbar = false;
   float m_dragStartY = 0.0f;
+
+  bool m_isDraggingInputScrollbar = false;
+  float m_inputDragStartY = 0.0f;
   float m_inputScrollOffset = 0.0f;
 
   void Update(float frameTime) {
@@ -33,7 +36,7 @@ public:
     }
   }
 
-  // Manipula o arraste (slide) da barra de rolagem pelo mouse
+  // Manipula o arraste (slide) da barra de rolagem principal
   void HandleScrollbarDrag(float contentHeight, float visibleHeight, float tabHeight, int screenWidth, Vector2 mousePos) {
     if (contentHeight <= visibleHeight) {
       m_isDraggingScrollbar = false;
@@ -66,6 +69,44 @@ public:
         m_scrollOffset = percent * maxScroll;
       } else {
         m_isDraggingScrollbar = false;
+      }
+    }
+  }
+
+  // Manipula o arraste (slide) da barra de rolagem interna do input
+  void HandleInputScrollbarDrag(int inputLines, float stepY, Rectangle inputField, Vector2 mousePos) {
+    if (inputLines <= 10) {
+      m_isDraggingInputScrollbar = false;
+      return;
+    }
+
+    // Posiciona o track da mesma forma que desenhado no ChatInput
+    Rectangle track = { inputField.x + inputField.width - 10.0f, inputField.y + 4.0f, 4.0f, inputField.height - 8.0f };
+    float thumbHeight = (10.0f / inputLines) * track.height;
+    if (thumbHeight < 15.0f) thumbHeight = 15.0f;
+
+    float maxScroll = (inputLines - 10) * stepY;
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+      float scrollPercent = (maxScroll != 0.0f) ? (m_inputScrollOffset / maxScroll) : 0.0f;
+      float thumbY = track.y + scrollPercent * (track.height - thumbHeight);
+      Rectangle thumb = { track.x, thumbY, track.width, thumbHeight };
+
+      if (CheckCollisionPointRec(mousePos, thumb)) {
+        m_isDraggingInputScrollbar = true;
+        m_inputDragStartY = mousePos.y - thumbY;
+      }
+    }
+
+    if (m_isDraggingInputScrollbar) {
+      if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        float targetThumbY = mousePos.y - m_inputDragStartY;
+        float percent = (targetThumbY - track.y) / (track.height - thumbHeight);
+        if (percent < 0.0f) percent = 0.0f;
+        if (percent > 1.0f) percent = 1.0f;
+        m_inputScrollOffset = percent * maxScroll;
+      } else {
+        m_isDraggingInputScrollbar = false;
       }
     }
   }
