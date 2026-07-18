@@ -9,11 +9,11 @@ class TextInput {
 public:
   TextInput() : m_isSelectedAll(false) {}
 
-  void Update() {
+  void Update(bool blockShortcuts = false) {
     // 1. Lê os atalhos de teclado de controle primeiro
     bool ctrlPressed = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
     
-    if (ctrlPressed) {
+    if (ctrlPressed && !blockShortcuts) {
       if (IsKeyPressed(KEY_A)) {
         m_isSelectedAll = true;
       }
@@ -68,6 +68,11 @@ public:
   void Clear() { m_text.clear(); }
   bool IsEmpty() const { return m_text.empty(); }
   bool IsSelectedAll() const { return m_isSelectedAll; }
+  void AppendNewline() {
+    if (m_text.length() < 256) {
+      m_text += "\n";
+    }
+  }
 
 private:
   std::string m_text;
