@@ -26,6 +26,8 @@ target_sources(jay-frontend
     src/ipc/event_dispatcher.cppm
     src/features/avatar/avatar_renderer.cppm
     src/features/chat/message_bubble.cppm
+    src/features/chat/tool_group_bubble.cppm
+    src/features/chat/bubble_registry.cppm
     src/features/chat/chat_events.cppm
     src/features/chat/chat_input.cppm
     src/features/chat/chat_renderer.cppm
