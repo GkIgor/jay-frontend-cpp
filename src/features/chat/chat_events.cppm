@@ -7,6 +7,7 @@ module;
 export module chat_events;
 
 import message_bubble;
+import chat_state;
 
 export namespace jay {
 
@@ -22,7 +23,6 @@ public:
   float m_scrollOffset = 0.0f;
   size_t m_prevMsgCount = 0;
 
-  // Estados de rolagem e drag (ADR-001 UX)
   bool m_isDraggingScrollbar = false;
   float m_dragStartY = 0.0f;
 
@@ -36,7 +36,6 @@ public:
     }
   }
 
-  // Manipula o arraste (slide) da barra de rolagem principal
   void HandleScrollbarDrag(float contentHeight, float visibleHeight, float tabHeight, int screenWidth, Vector2 mousePos) {
     if (contentHeight <= visibleHeight) {
       m_isDraggingScrollbar = false;
@@ -73,14 +72,12 @@ public:
     }
   }
 
-  // Manipula o arraste (slide) da barra de rolagem interna do input
   void HandleInputScrollbarDrag(int inputLines, float stepY, Rectangle inputField, Vector2 mousePos) {
     if (inputLines <= 10) {
       m_isDraggingInputScrollbar = false;
       return;
     }
 
-    // Posiciona o track da mesma forma que desenhado no ChatInput
     Rectangle track = { inputField.x + inputField.width - 10.0f, inputField.y + 4.0f, 4.0f, inputField.height - 8.0f };
     float thumbHeight = (10.0f / inputLines) * track.height;
     if (thumbHeight < 15.0f) thumbHeight = 15.0f;
@@ -112,6 +109,8 @@ public:
   }
 
   int GetCharIndexAtMouse(Font font, const std::string& text, const std::vector<std::string>& wrappedLines, Rectangle scrolledRect, float fontSize, Vector2 mousePos) {
+    if (wrappedLines.empty()) return 0;
+
     int lineIdx = (int)((mousePos.y - (scrolledRect.y + 10)) / 24);
     if (lineIdx < 0) lineIdx = 0;
     if (lineIdx >= (int)wrappedLines.size()) lineIdx = (int)wrappedLines.size() - 1;
@@ -130,10 +129,9 @@ public:
       }
     }
 
-    // Calcula o índice absoluto no texto exibido
     int absIdx = 0;
     for (int l = 0; l < lineIdx; ++l) {
-      absIdx += (int)wrappedLines[l].length() + 1; // +1 pelo caractere de quebra implícito
+      absIdx += (int)wrappedLines[l].length() + 1;
     }
     return absIdx + colIdx;
   }
@@ -145,7 +143,7 @@ public:
       m_selectionEndChar = -1;
 
       for (const auto& bubble : renderList) {
-        if (bubble.isLoading) continue;
+        if (bubble.isLoading || bubble.kind == ChatKind::ToolGroup || bubble.lines.empty()) continue;
 
         Rectangle scrolledRect = bubble.rect;
         scrolledRect.y += m_scrollOffset;
@@ -158,7 +156,6 @@ public:
         }
 
         if (CheckCollisionPointRec(mousePos, copyBtnRect)) {
-          // Copia o texto reconstruindo as quebras originais
           std::string dispText = "";
           for (size_t l = 0; l < bubble.lines.size(); ++l) {
             dispText += bubble.lines[l];
