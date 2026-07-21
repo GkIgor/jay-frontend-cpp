@@ -30,4 +30,14 @@ export namespace jay::Theme {
   inline const Color Sleeping = GetColor(0x1F6FEB66);
   inline const Color AllowBtn = Success;
   inline const Color DenyBtn = Danger;
+
+  // Constantes de Layout (compartilhadas por todos os módulos visuais)
+  inline constexpr float StepY             = 18.0f;   // altura de linha do input de texto
+  inline constexpr float BubbleStepY       = 24.0f;   // altura de linha das bolhas de chat
+  inline constexpr float BubbleCornerRadius = 12.0f;  // raio fixo dos cantos dos balões
+  inline constexpr float ScrollbarWidth    = 8.0f;    // largura do track+thumb
+  inline constexpr float ScrollbarMinThumb = 20.0f;   // altura mínima do thumb
+  inline constexpr float WheelSensChat     = 140.0f;  // pixels por notch do mouse no chat
+  inline constexpr float WheelSensInput    = 54.0f;   // pixels por notch do mouse no input
+  inline constexpr float InputPaddingH     = 12.0f;   // margem horizontal interna do input
 } // namespace jay::Theme

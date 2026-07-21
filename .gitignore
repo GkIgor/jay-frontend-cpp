@@ -23,3 +23,7 @@ compile_commands.json
 jay-frontend-cpp
 *.out
 *.exe
+
+# Profiling and tracking dumps
+heaptrack.*.zst
+*.zst

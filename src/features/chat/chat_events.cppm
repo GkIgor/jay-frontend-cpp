@@ -8,6 +8,9 @@ export module chat_events;
 
 import message_bubble;
 import chat_state;
+import scroll_controller;
+import scrollbar;
+import theme;
 
 export namespace jay {
 
@@ -20,15 +23,9 @@ public:
   int m_copiedBubbleIdx = -1;
   float m_copiedTimer = 0.0f;
 
-  float m_scrollOffset = 0.0f;
+  ScrollController m_chatScroll{Theme::WheelSensChat};
+  ScrollController m_inputScroll{Theme::WheelSensInput};
   size_t m_prevMsgCount = 0;
-
-  bool m_isDraggingScrollbar = false;
-  float m_dragStartY = 0.0f;
-
-  bool m_isDraggingInputScrollbar = false;
-  float m_inputDragStartY = 0.0f;
-  float m_inputScrollOffset = 0.0f;
 
   void Update(float frameTime) {
     if (m_copiedTimer > 0.0f) {
@@ -36,82 +33,52 @@ public:
     }
   }
 
-  void HandleScrollbarDrag(float contentHeight, float visibleHeight, float tabHeight, int screenWidth, Vector2 mousePos) {
-    if (contentHeight <= visibleHeight) {
-      m_isDraggingScrollbar = false;
-      return;
-    }
+  void HandleChatScrollbarDrag(const Scrollbar& scrollbar, Rectangle chatBounds,
+                                float contentHeight, float visibleHeight) {
+    if (!scrollbar.IsVisible(contentHeight, visibleHeight)) return;
 
-    Rectangle track = { screenWidth - 12.0f, tabHeight + 4.0f, 6.0f, visibleHeight - 8.0f };
-    float thumbHeight = (visibleHeight / contentHeight) * track.height;
-    if (thumbHeight < 30.0f) thumbHeight = 30.0f;
-
-    float maxScroll = visibleHeight - contentHeight;
+    float maxScroll = visibleHeight - contentHeight; // negativo quando content > visible
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-      float scrollPercent = (maxScroll != 0.0f) ? (m_scrollOffset / maxScroll) : 0.0f;
-      float thumbY = track.y + scrollPercent * (track.height - thumbHeight);
-      Rectangle thumb = { track.x, thumbY, track.width, thumbHeight };
-
-      if (CheckCollisionPointRec(mousePos, thumb)) {
-        m_isDraggingScrollbar = true;
-        m_dragStartY = mousePos.y - thumbY;
-      }
+      Rectangle thumbRect = scrollbar.GetThumbRect(chatBounds, -m_chatScroll.GetOffset(),
+        contentHeight, visibleHeight);
+      m_chatScroll.TryBeginDrag(GetMousePosition(), thumbRect);
     }
 
-    if (m_isDraggingScrollbar) {
-      if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        float targetThumbY = mousePos.y - m_dragStartY;
-        float percent = (targetThumbY - track.y) / (track.height - thumbHeight);
-        if (percent < 0.0f) percent = 0.0f;
-        if (percent > 1.0f) percent = 1.0f;
-        m_scrollOffset = percent * maxScroll;
-      } else {
-        m_isDraggingScrollbar = false;
-      }
-    }
+    Rectangle track = scrollbar.GetTrackRect(chatBounds);
+    float thumbH = scrollbar.GetThumbRect(chatBounds, -m_chatScroll.GetOffset(),
+      contentHeight, visibleHeight).height;
+
+    m_chatScroll.UpdateDrag(GetMousePosition().y, track.y, track.height, thumbH, maxScroll);
+    m_chatScroll.EndDragIfReleased();
   }
 
-  void HandleInputScrollbarDrag(int inputLines, float stepY, Rectangle inputField, Vector2 mousePos) {
-    if (inputLines <= 10) {
-      m_isDraggingInputScrollbar = false;
-      return;
-    }
+  void HandleInputScrollbarDrag(const Scrollbar& scrollbar, Rectangle inputField,
+                                 int inputLines, float stepY) {
+    if (inputLines <= 10) return;
 
-    Rectangle track = { inputField.x + inputField.width - 10.0f, inputField.y + 4.0f, 4.0f, inputField.height - 8.0f };
-    float thumbHeight = (10.0f / inputLines) * track.height;
-    if (thumbHeight < 15.0f) thumbHeight = 15.0f;
-
-    float maxScroll = (inputLines - 10) * stepY;
+    float contentHeight = inputLines * stepY;
+    float visibleHeight = inputField.height - 8.0f;
+    float maxScroll = std::max(0.0f, (inputLines - 10) * stepY);
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-      float scrollPercent = (maxScroll != 0.0f) ? (m_inputScrollOffset / maxScroll) : 0.0f;
-      float thumbY = track.y + scrollPercent * (track.height - thumbHeight);
-      Rectangle thumb = { track.x, thumbY, track.width, thumbHeight };
-
-      if (CheckCollisionPointRec(mousePos, thumb)) {
-        m_isDraggingInputScrollbar = true;
-        m_inputDragStartY = mousePos.y - thumbY;
-      }
+      Rectangle thumbRect = scrollbar.GetThumbRect(inputField, m_inputScroll.GetOffset(),
+        contentHeight, visibleHeight);
+      m_inputScroll.TryBeginDrag(GetMousePosition(), thumbRect);
     }
 
-    if (m_isDraggingInputScrollbar) {
-      if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        float targetThumbY = mousePos.y - m_inputDragStartY;
-        float percent = (targetThumbY - track.y) / (track.height - thumbHeight);
-        if (percent < 0.0f) percent = 0.0f;
-        if (percent > 1.0f) percent = 1.0f;
-        m_inputScrollOffset = percent * maxScroll;
-      } else {
-        m_isDraggingInputScrollbar = false;
-      }
-    }
+    Rectangle track = scrollbar.GetTrackRect(inputField);
+    float thumbH = scrollbar.GetThumbRect(inputField, m_inputScroll.GetOffset(),
+      contentHeight, visibleHeight).height;
+
+    m_inputScroll.UpdateDrag(GetMousePosition().y, track.y, track.height, thumbH, maxScroll);
+    m_inputScroll.EndDragIfReleased();
   }
 
   int GetCharIndexAtMouse(Font font, const std::string& text, const std::vector<std::string>& wrappedLines, Rectangle scrolledRect, float fontSize, Vector2 mousePos) {
     if (wrappedLines.empty()) return 0;
 
-    int lineIdx = (int)((mousePos.y - (scrolledRect.y + 10)) / 24);
+    int lineIdx = (int)((mousePos.y - (scrolledRect.y + 10)) / Theme::BubbleStepY);
     if (lineIdx < 0) lineIdx = 0;
     if (lineIdx >= (int)wrappedLines.size()) lineIdx = (int)wrappedLines.size() - 1;
 
@@ -146,7 +113,7 @@ public:
         if (bubble.isLoading || bubble.kind == ChatKind::ToolGroup || bubble.lines.empty()) continue;
 
         Rectangle scrolledRect = bubble.rect;
-        scrolledRect.y += m_scrollOffset;
+        scrolledRect.y += m_chatScroll.GetOffset();
 
         Rectangle copyBtnRect;
         if (bubble.isUser) {
@@ -180,7 +147,7 @@ public:
       for (const auto& bubble : renderList) {
         if (bubble.originalIndex == m_selectionBubbleIdx) {
           Rectangle scrolledRect = bubble.rect;
-          scrolledRect.y += m_scrollOffset;
+          scrolledRect.y += m_chatScroll.GetOffset();
           m_selectionEndChar = GetCharIndexAtMouse(font, bubble.originalText, bubble.lines, scrolledRect, fontSize, mousePos);
           break;
         }

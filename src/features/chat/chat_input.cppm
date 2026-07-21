@@ -7,92 +7,125 @@ export module chat_input;
 
 import theme;
 import text_input;
+import text_editor;
+import text_layout;
+import unicode;
+import scrollbar;
 
 export namespace jay {
 
 class ChatInput {
 public:
-  static void Draw(Font font, TextInput& txtInput, int screenWidth, int screenHeight, int iy, int dynamicInputHeight, int inputLines, int visibleInputLines, bool blockShortcuts, Vector2 mousePos, bool& triggerSend, bool ctrlPressed, bool isSendBlocked, float inputScrollOffset) {
+  static void Draw(Font font, TextInput& txtInput, int screenWidth, int screenHeight, int iy,
+                   int dynamicInputHeight, int inputLines, int visibleInputLines,
+                   bool blockShortcuts, Vector2 mousePos, bool& triggerSend,
+                   bool ctrlPressed, bool isSendBlocked, float inputScrollOffset) {
     DrawRectangle(0, iy, screenWidth, dynamicInputHeight, Theme::Panel);
     DrawLine(0, iy, screenWidth, iy, Theme::Border);
 
-    const float stepY = 18.0f; // Altura exata da linha para a fonte 18.0f
+    const float stepY = Theme::StepY;
     float inputFieldHeight = 42.0f + (visibleInputLines - 1) * stepY;
-    
-    // Subtrai uma pequena largura à caixa de texto se a barra de rolagem for exibida
-    float scrollBarWidth = (inputLines > 10) ? 12.0f : 0.0f;
+
+    Scrollbar scrollbar(ScrollbarStyle{});
+    float scrollBarWidth = (inputLines > 10) ? (scrollbar.GetWidth() + 8.0f) : 0.0f;
     Rectangle inputField = {40.0f, (float)(iy + 19), (float)(screenWidth - 220), inputFieldHeight};
     DrawRectangleRec(inputField, Theme::Background);
     DrawRectangleLinesEx(inputField, 1.0f, Theme::Border);
 
+    float inputTextSize = 18.0f;
+    float maxWidth = inputField.width - 24.0f - scrollBarWidth;
+
+    // 1. Reconstrói o layout de texto via TextEditor (única fonte de verdade)
+    TextLayoutConfig layoutConfig;
+    layoutConfig.font = font;
+    layoutConfig.fontSize = inputTextSize;
+    layoutConfig.maxWidth = maxWidth;
+    txtInput.RebuildLayout(layoutConfig);
+
+    // 2. Processa cliques de mouse e arrasto
+    txtInput.UpdateMouseSelection(font, inputTextSize, mousePos, inputField, inputScrollOffset);
+
+    // 3. Processa atalhos e digitação do teclado
     txtInput.Update(blockShortcuts);
 
-    std::string currentText = txtInput.GetText();
-    float inputTextSize = 18.0f;
+    // 4. Regenera o layout caso o texto tenha mudado no ciclo atual do frame
+    txtInput.RebuildLayout(layoutConfig);
 
-    // Divide o texto em linhas usando as quebras reais '\n'
-    std::vector<std::string> linesVec;
-    std::string tmp = "";
-    for (char c : currentText) {
-      if (c == '\n') {
-        linesVec.push_back(tmp);
-        tmp = "";
-      } else {
-        tmp += c;
+    const auto& physicalLines = txtInput.GetLayout().GetLines();
+    const TextEditor& editor = txtInput.GetEditor();
+    const Selection& sel = editor.GetSelection();
+
+    BeginScissorMode((int)inputField.x + 2, (int)inputField.y + 2,
+                     (int)inputField.width - 4 - (int)scrollBarWidth, (int)inputField.height - 4);
+
+    // 5. Desenha destaque de seleção multi-linha dinâmica se ativa
+    if (sel.IsActive()) {
+      size_t selStart = sel.GetStart();
+      size_t selEnd = sel.GetEnd();
+      size_t absCounter = 0;
+
+      for (size_t l = 0; l < physicalLines.size(); ++l) {
+        std::vector<char32_t> lineCps = unicode::Utf8ToCodepoints(physicalLines[l].text);
+        size_t lineStartAbs = absCounter;
+        size_t lineEndAbs = lineStartAbs + lineCps.size();
+
+        size_t interStart = std::max(lineStartAbs, selStart);
+        size_t interEnd = std::min(lineEndAbs, selEnd);
+
+        if (interStart < interEnd) {
+          int colStart = (int)(interStart - lineStartAbs);
+          int colEnd = (int)(interEnd - lineStartAbs);
+
+          std::vector<char32_t> prefixSlice(lineCps.begin(), lineCps.begin() + colStart);
+          float xStart = MeasureTextEx(font, unicode::CodepointsToUtf8(prefixSlice).c_str(),
+                                       inputTextSize, 1.0f).x;
+
+          std::vector<char32_t> selectSlice(lineCps.begin() + colStart, lineCps.begin() + colEnd);
+          float widthSel = MeasureTextEx(font, unicode::CodepointsToUtf8(selectSlice).c_str(),
+                                        inputTextSize, 1.0f).x;
+
+          Rectangle selectionRect = {
+            inputField.x + 12 + xStart,
+            inputField.y + 9 + l * stepY - inputScrollOffset,
+            widthSel,
+            stepY + 2
+          };
+          DrawRectangleRec(selectionRect, GetColor(0x1F6FEB88));
+        }
+        absCounter += lineCps.size() + (physicalLines[l].hasNewLine ? 1 : 0);
       }
     }
-    linesVec.push_back(tmp);
 
-    BeginScissorMode((int)inputField.x + 2, (int)inputField.y + 2, (int)inputField.width - 4 - (int)scrollBarWidth, (int)inputField.height - 4);
-
-    // Desenha destaques Ctrl+A linha por linha para manter 100% de consistência
-    if (txtInput.IsSelectedAll() && !currentText.empty()) {
-      for (size_t l = 0; l < linesVec.size(); ++l) {
-        Vector2 lineDim = MeasureTextEx(font, linesVec[l].c_str(), inputTextSize, 1.0f);
-        Rectangle selectionRect = {
-          inputField.x + 10,
-          inputField.y + 9 + l * stepY - inputScrollOffset,
-          lineDim.x + 4,
-          stepY + 2
-        };
-        DrawRectangleRec(selectionRect, GetColor(0x1F6FEB88));
-      }
-    }
-
-    // Desenha o texto digitado linha por linha
-    for (size_t l = 0; l < linesVec.size(); ++l) {
+    // 6. Desenha o texto digitado linha por linha
+    for (size_t l = 0; l < physicalLines.size(); ++l) {
       Vector2 linePos = {inputField.x + 12, inputField.y + 12 + l * stepY - inputScrollOffset};
-      DrawTextEx(font, linesVec[l].c_str(), linePos, inputTextSize, 1.0f, Theme::TextMain);
+      DrawTextEx(font, physicalLines[l].text.c_str(), linePos, inputTextSize, 1.0f, Theme::TextMain);
     }
 
-    // Cursor piscante posicionado na linha correta sem acumular erros
+    // 7. Desenha o cursor piscante posicionado de forma dinâmica
     if (((int)(GetTime() * 2) % 2) == 0) {
-      int cursorX = 14;
-      int cursorY = 10;
-      std::string lastLine = linesVec.back();
-      Vector2 textDim = MeasureTextEx(font, lastLine.c_str(), inputTextSize, 1.0f);
-      cursorX += (int)textDim.x;
-      cursorY += (linesVec.size() - 1) * stepY;
+      size_t caretIdx = editor.GetCaret().logicalIndex;
+      auto [cursorLine, cursorCol] = txtInput.GetLayout().IndexToLineCol(caretIdx);
 
-      DrawRectangle(inputField.x + cursorX, inputField.y + cursorY - inputScrollOffset, 2, 22, Theme::Glow);
+      std::vector<char32_t> lineCps = unicode::Utf8ToCodepoints(physicalLines[cursorLine].text);
+      std::vector<char32_t> prefixSlice(lineCps.begin(), lineCps.begin() + cursorCol);
+      float prefixWidth = MeasureTextEx(font, unicode::CodepointsToUtf8(prefixSlice).c_str(),
+                                       inputTextSize, 1.0f).x;
+
+      int cursorX = 12 + (int)prefixWidth;
+      int cursorY = 10 + cursorLine * stepY;
+
+      DrawRectangle(inputField.x + cursorX, inputField.y + cursorY - inputScrollOffset,
+                    2, 22, Theme::Glow);
     }
 
     EndScissorMode();
 
-    // Desenha barra de rolagem (mini Scrollbar) dentro da caixa de texto
+    // 8. Desenha scrollbar reutilizável
     if (inputLines > 10) {
-      Rectangle track = { inputField.x + inputField.width - 10.0f, inputField.y + 4.0f, 4.0f, inputField.height - 8.0f };
-      DrawRectangleRounded(track, 1.0f, 4, GetColor(0x1F293733));
-
-      float thumbHeight = (10.0f / inputLines) * track.height;
-      if (thumbHeight < 15.0f) thumbHeight = 15.0f;
-
-      float maxScroll = (inputLines - 10) * stepY;
-      float scrollPercent = (maxScroll != 0.0f) ? (inputScrollOffset / maxScroll) : 0.0f;
-      float thumbY = track.y + scrollPercent * (track.height - thumbHeight);
-
-      Rectangle thumb = { track.x, thumbY, track.width, thumbHeight };
-      DrawRectangleRounded(thumb, 1.0f, 4, Theme::Glow);
+      float contentHeight = physicalLines.size() * stepY;
+      float visibleHeight = inputField.height - 8.0f;
+      scrollbar.Draw(inputField, inputScrollOffset, contentHeight, visibleHeight);
     }
 
     // Botão Enviar
@@ -110,7 +143,7 @@ public:
     }
 
     DrawRectangleRounded(sendBtn, 0.2f, 4, btnColor);
-    
+
     float sendBtnFontSize = 14.0f;
     Vector2 sendTextDim = MeasureTextEx(font, "ENVIAR", sendBtnFontSize, 1.0f);
     Vector2 sendTextPos = {
@@ -119,7 +152,6 @@ public:
     };
     DrawTextEx(font, "ENVIAR", sendTextPos, sendBtnFontSize, 1.0f, btnTextColor);
 
-    // Bloqueia envios se m_state indica processamento ativo
     if (IsKeyPressed(KEY_ENTER)) {
       if (ctrlPressed) {
         txtInput.AppendNewline();

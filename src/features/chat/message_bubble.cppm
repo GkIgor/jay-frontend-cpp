@@ -35,8 +35,11 @@ public:
     Rectangle scrolledRect = bubble.rect;
     scrolledRect.y += scrollOffset;
 
+    float minSide = std::min(scrolledRect.width, scrolledRect.height);
+    float roundness = std::min(1.0f, (minSide > 0.0f) ? (2.0f * Theme::BubbleCornerRadius / minSide) : 0.0f);
+
     if (bubble.isLoading) {
-      DrawRectangleRounded(scrolledRect, 0.2f, 4, bubble.bubbleColor);
+      DrawRectangleRounded(scrolledRect, roundness, 4, bubble.bubbleColor);
       DrawTextEx(font, bubble.label.c_str(),
                  {scrolledRect.x + 10, scrolledRect.y - 15}, labelFontSize, 1.0f, Theme::TextSec);
 
@@ -48,7 +51,7 @@ public:
       return;
     }
 
-    DrawRectangleRounded(scrolledRect, 0.2f, 4, bubble.bubbleColor);
+    DrawRectangleRounded(scrolledRect, roundness, 4, bubble.bubbleColor);
     DrawTextEx(font, bubble.label.c_str(),
                {scrolledRect.x + 10, scrolledRect.y - 15}, labelFontSize, 1.0f, Theme::TextSec);
 

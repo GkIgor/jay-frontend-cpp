@@ -15,8 +15,10 @@ import avatar_state;
 import chat_state;
 import theme;
 import text_input;
+import text_layout;
 import ipc_client;
-import scroll_view;
+import scrollbar;
+import scroll_controller;
 import message_bubble;
 import chat_input;
 import chat_events;
@@ -27,9 +29,14 @@ using json = nlohmann::json;
 export namespace jay {
 
 struct CachedBubbleLayout {
-  std::vector<std::string> lines;
+  TextLayout layout;
   int measuredWidth = 0;
 };
+
+// Comentário Arquitetural (BubbleLayout):
+// Futuramente, o layout das bolhas de chat (CachedBubbleLayout) poderá reutilizar
+// o TextLayout quando ambos suportarem a mesma configuração de layout (stepY, fonte, maxWidth).
+// Por enquanto, a unificação está adiada pois as bolhas usam BubbleStepY=24px e o input usa StepY=18px.
 
 class ChatRenderer {
 public:
@@ -45,13 +52,23 @@ public:
     m_events.Update(GetFrameTime());
 
     std::string currentText = m_textInput.GetText();
-    int inputLines = 1;
-    for (char c : currentText) {
-      if (c == '\n') inputLines++;
-    }
+
+    // Calcula inputLines via TextLayout (única fonte de verdade)
+    float inputTextSize = 18.0f;
+    float scrollBarWidthReserve = 16.0f; // Reserva para possível scrollbar
+    float inputFieldBaseWidth = (float)(screenWidth - 220);
+    float maxInputWidth = inputFieldBaseWidth - 24.0f - scrollBarWidthReserve;
+
+    TextLayoutConfig inputLayoutConfig;
+    inputLayoutConfig.font = font;
+    inputLayoutConfig.fontSize = inputTextSize;
+    inputLayoutConfig.maxWidth = maxInputWidth;
+    m_textInput.RebuildLayout(inputLayoutConfig);
+
+    int inputLines = m_textInput.GetLayout().GetLineCount();
     int visibleInputLines = std::min(inputLines, 10);
 
-    const float stepY = 18.0f;
+    const float stepY = Theme::StepY;
     int dynamicInputHeight = 80 + (visibleInputLines - 1) * stepY;
     int chatAreaHeight = screenHeight - tabHeight - dynamicInputHeight;
 
@@ -60,34 +77,37 @@ public:
 
     int iy = screenHeight - dynamicInputHeight;
     float inputFieldHeight = 42.0f + (visibleInputLines - 1) * stepY;
-    Rectangle inputField = {40.0f, (float)(iy + 19), (float)(screenWidth - 220), inputFieldHeight};
+    Rectangle inputField = {40.0f, (float)(iy + 19), inputFieldBaseWidth, inputFieldHeight};
     bool isMouseOverInput = CheckCollisionPointRec(mousePos, inputField);
 
     if (wheel != 0) {
       if (isMouseOverInput && inputLines > 10) {
-        m_events.m_inputScrollOffset -= wheel * 18.0f;
+        m_events.m_inputScroll.ApplyWheel(-wheel);
       } else {
-        m_events.m_scrollOffset += wheel * 48.0f;
+        m_events.m_chatScroll.ApplyWheel(wheel);
       }
     }
 
-    if (IsKeyDown(KEY_UP))   m_events.m_scrollOffset += 6.0f;
-    if (IsKeyDown(KEY_DOWN)) m_events.m_scrollOffset -= 6.0f;
+    if (IsKeyDown(KEY_UP))   m_events.m_chatScroll.ScrollByKeyboard(6.0f);
+    if (IsKeyDown(KEY_DOWN)) m_events.m_chatScroll.ScrollByKeyboard(-6.0f);
 
     float maxInputScroll = std::max(0.0f, (inputLines - 10) * stepY);
     if (currentText != m_prevInputText) {
-      m_events.m_inputScrollOffset = std::min(m_events.m_inputScrollOffset, maxInputScroll);
+      float inputOffset = m_events.m_inputScroll.GetOffset();
+      if (inputOffset > maxInputScroll) {
+        m_events.m_inputScroll.SetOffset(maxInputScroll);
+      }
       if (inputLines > 10) {
         float cursorY = (inputLines - 1) * stepY;
-        if (cursorY >= m_events.m_inputScrollOffset + 10 * stepY) {
-          m_events.m_inputScrollOffset = (inputLines - 10) * stepY;
+        if (cursorY >= m_events.m_inputScroll.GetOffset() + 10 * stepY) {
+          m_events.m_inputScroll.SetOffset((inputLines - 10) * stepY);
         }
       }
       m_prevInputText = currentText;
     }
 
-    m_events.m_inputScrollOffset = std::clamp(m_events.m_inputScrollOffset, 0.0f, maxInputScroll);
-    m_events.HandleInputScrollbarDrag(inputLines, stepY, inputField, mousePos);
+    m_events.m_inputScroll.Clamp(0.0f, maxInputScroll);
+    m_events.HandleInputScrollbarDrag(m_inputScrollbar, inputField, inputLines, stepY);
 
     std::vector<ChatMessage> messages = state->chat.GetChatFeed();
     if (messages.empty() && !m_layoutCache.empty()) {
@@ -122,30 +142,31 @@ public:
 
     if (messages.size() > m_events.m_prevMsgCount) {
       bool lastIsUser = (!messages.empty() && messages.back().sender == "user");
-      bool wasNearBottom = (m_events.m_scrollOffset <= m_prevMinScroll + 50.0f);
+      bool wasNearBottom = (m_events.m_chatScroll.GetOffset() <= m_prevMinScroll + 50.0f);
       if (lastIsUser || wasNearBottom) {
-        m_events.m_scrollOffset = minScroll;
+        m_events.m_chatScroll.SetOffset(minScroll);
       }
       m_events.m_prevMsgCount = messages.size();
     }
 
-    if (m_events.m_scrollOffset > 0.0f)      m_events.m_scrollOffset = 0.0f;
-    if (m_events.m_scrollOffset < minScroll) m_events.m_scrollOffset = minScroll;
+    m_events.m_chatScroll.Clamp(minScroll, 0.0f);
 
     bool isMouseDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     bool isMousePressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 
     m_events.HandleMouseClicks(font, fontSize, m_renderList, mousePos, isMousePressed, isMouseDown);
     m_events.HandleKeyboardCopy(m_renderList);
-    m_events.HandleScrollbarDrag((float)totalFeedHeight, (float)chatAreaHeight - 50,
-                                 (float)tabHeight, screenWidth, mousePos);
+
+    Rectangle chatBounds = {0.0f, (float)tabHeight, (float)screenWidth, (float)(chatAreaHeight - 50)};
+    m_events.HandleChatScrollbarDrag(m_chatScrollbar, chatBounds,
+                                      (float)totalFeedHeight, (float)(chatAreaHeight - 50));
 
     BeginScissorMode(0, tabHeight, screenWidth, chatAreaHeight);
 
     for (auto& bubble : m_renderList) {
       bool expanded = GetExpanded(bubble.id);
       bool toggled  = m_registry.Draw(
-        font, bubble, m_events.m_scrollOffset, fontSize, labelFontSize, mousePos, expanded,
+        font, bubble, m_events.m_chatScroll.GetOffset(), fontSize, labelFontSize, mousePos, expanded,
         m_events.m_selectionBubbleIdx, m_events.m_selectionStartChar, m_events.m_selectionEndChar,
         m_events.m_copiedBubbleIdx, m_events.m_copiedTimer
       );
@@ -157,8 +178,8 @@ public:
 
     EndScissorMode();
 
-    ScrollView::DrawScrollbar(m_events.m_scrollOffset, (float)totalFeedHeight,
-                              (float)chatAreaHeight - 50, (float)tabHeight, screenWidth);
+    m_chatScrollbar.Draw(chatBounds, -m_events.m_chatScroll.GetOffset(),
+                         (float)totalFeedHeight, (float)(chatAreaHeight - 50));
     m_prevMinScroll = minScroll;
 
     bool triggerSend = false;
@@ -169,12 +190,12 @@ public:
     ChatInput::Draw(font, m_textInput, screenWidth, screenHeight, iy,
                     dynamicInputHeight, inputLines, visibleInputLines,
                     blockShorts, mousePos, triggerSend, ctrlPressed,
-                    isWaiting, m_events.m_inputScrollOffset);
+                    isWaiting, m_events.m_inputScroll.GetOffset());
 
     if (triggerSend && !m_textInput.IsEmpty() && !isWaiting) {
       std::string text = m_textInput.GetText();
       m_textInput.Clear();
-      m_events.m_inputScrollOffset = 0.0f;
+      m_events.m_inputScroll.SetOffset(0.0f);
 
       long long ts = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
@@ -199,6 +220,8 @@ private:
   TextInput    m_textInput;
   ChatEvents   m_events;
   BubbleRegistry m_registry;
+  Scrollbar    m_chatScrollbar;
+  Scrollbar    m_inputScrollbar;
   int          m_cmdCounter;
   float        m_prevMinScroll;
   std::string  m_prevInputText;
@@ -226,40 +249,6 @@ private:
     return s.substr(first, last - first + 1);
   }
 
-  std::vector<std::string> WrapText(Font font, const std::string& text, int maxWidth, float fontSize) {
-    std::vector<std::string> lines;
-    std::string currentLine, word;
-    for (char c : text) {
-      if (c == '\n') {
-        currentLine += word;
-        lines.push_back(currentLine);
-        currentLine = "";
-        word = "";
-      } else if (c == ' ') {
-        std::string testLine = currentLine + word + " ";
-        if (MeasureTextEx(font, testLine.c_str(), fontSize, 1.0f).x > maxWidth) {
-          lines.push_back(currentLine);
-          currentLine = word + " ";
-        } else {
-          currentLine = testLine;
-        }
-        word = "";
-      } else {
-        word += c;
-      }
-    }
-    if (!word.empty() || !currentLine.empty()) {
-      std::string testLine = currentLine + word;
-      if (MeasureTextEx(font, testLine.c_str(), fontSize, 1.0f).x > maxWidth) {
-        lines.push_back(currentLine);
-        lines.push_back(word);
-      } else {
-        lines.push_back(testLine);
-      }
-    }
-    return lines;
-  }
-
   void RebuildLayout(const std::vector<ChatMessage>& messages, Font font,
                      int screenWidth, int screenHeight, bool isWaiting, int tabHeight) {
     m_renderList.clear();
@@ -279,15 +268,25 @@ private:
       if (msg.kind != ChatKind::ToolGroup) {
         auto it = m_layoutCache.find(msg.id);
         if (it != m_layoutCache.end()) {
-          bubbleLines   = it->second.lines;
           measuredWidth = it->second.measuredWidth;
-        } else {
-          bubbleLines = WrapText(font, Trim(msg.text), maxBubbleWidth - 32, fontSize);
-          for (const auto& line : bubbleLines) {
-            Vector2 sz = MeasureTextEx(font, line.c_str(), fontSize, 1.0f);
-            if ((int)sz.x > measuredWidth) measuredWidth = (int)sz.x;
+          for (const auto& l : it->second.layout.GetLines()) {
+            bubbleLines.push_back(l.text);
           }
-          m_layoutCache[msg.id] = { bubbleLines, measuredWidth };
+        } else {
+          TextLayoutConfig layoutConfig;
+          layoutConfig.font = font;
+          layoutConfig.fontSize = fontSize;
+          layoutConfig.maxWidth = (float)(maxBubbleWidth - 32);
+
+          TextLayout textLayout;
+          textLayout.Build(Trim(msg.text), layoutConfig);
+
+          for (const auto& l : textLayout.GetLines()) {
+            Vector2 sz = MeasureTextEx(font, l.text.c_str(), fontSize, 1.0f);
+            if ((int)sz.x > measuredWidth) measuredWidth = (int)sz.x;
+            bubbleLines.push_back(l.text);
+          }
+          m_layoutCache[msg.id] = { std::move(textLayout), measuredWidth };
         }
       }
 
@@ -346,7 +345,8 @@ private:
         bubbleWidth  = 340.0f;
         bubbleHeight = m_registry.CalculateHeight(bubble, expanded);
       } else {
-        bubbleWidth  = measuredWidth + 32;
+        // Garante que a largura da bolha respeite o limite máximo de maxBubbleWidth
+        bubbleWidth  = std::min((float)maxBubbleWidth, (float)measuredWidth + 32.0f);
         bubbleHeight = m_registry.CalculateHeight(bubble, expanded);
       }
 

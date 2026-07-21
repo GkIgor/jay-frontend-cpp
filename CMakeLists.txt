@@ -19,8 +19,12 @@ target_sources(jay-frontend
     src/features/chat/chat_state.cppm
     src/features/permissions/permission_state.cppm
     src/app/app_state.cppm
+    src/shared/unicode/unicode.cppm
+    src/shared/layout/text_layout.cppm
+    src/shared/widgets/text_editor.cppm
     src/shared/widgets/text_input.cppm
-    src/shared/widgets/scroll_view.cppm
+    src/shared/scroll/scroll_controller.cppm
+    src/shared/scroll/scrollbar.cppm
     src/shared/widgets/tab_bar.cppm
     src/ipc/ipc_client.cppm
     src/ipc/event_dispatcher.cppm
