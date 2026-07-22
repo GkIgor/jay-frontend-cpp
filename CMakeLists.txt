@@ -14,6 +14,23 @@ add_executable(jay-frontend src/main.cpp)
 target_sources(jay-frontend
   PUBLIC
     FILE_SET CXX_MODULES FILES
+    src/engine/types.cppm
+    src/engine/render_context.cppm
+    src/engine/widget.cppm
+    src/engine/layout_engine.cppm
+    src/engine/input_dispatcher.cppm
+    src/engine/focus_manager.cppm
+    src/engine/animation_engine.cppm
+    src/state/actions.cppm
+    src/state/state_store.cppm
+    src/ipc/protocol.cppm
+    src/usecases/use_case.cppm
+    src/usecases/send_message_usecase.cppm
+    src/usecases/create_chat_usecase.cppm
+    src/usecases/approve_permission_usecase.cppm
+    src/shared/widgets/label.cppm
+    src/shared/widgets/button.cppm
+    src/shared/widgets/panel.cppm
     src/app/theme.cppm
     src/features/avatar/avatar_state.cppm
     src/features/chat/chat_state.cppm
@@ -38,6 +55,7 @@ target_sources(jay-frontend
     src/features/permissions/permission_modal.cppm
     src/app/renderer.cppm
     src/app/main_window.cppm
+    src/app/shell.cppm
     src/app/application.cppm
 )
 target_link_libraries(jay-frontend PRIVATE raylib nlohmann_json::nlohmann_json pthread)
