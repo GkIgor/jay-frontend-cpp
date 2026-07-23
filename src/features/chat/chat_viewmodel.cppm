@@ -23,6 +23,10 @@ public:
         return m_activeChatId;
     }
 
+    [[nodiscard]] jay::state::ConnectionState GetConnectionState() const noexcept {
+        return m_store.GetConnectionState();
+    }
+
     [[nodiscard]] const std::vector<jay::state::MessageDTO>& GetMessages() const noexcept {
         static const std::vector<jay::state::MessageDTO> empty;
         auto* msgs = m_store.GetMessagesForChat(m_activeChatId);

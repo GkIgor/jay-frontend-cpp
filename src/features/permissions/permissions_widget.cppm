@@ -16,6 +16,15 @@ import jay.usecases.approve_permission;
 
 export namespace jay::features::permissions {
 
+// ─────────────────────────────────────────────────────────────────
+// PermissionsWidget (Task 40: PERM-001, PERM-002)
+//
+// Modal Overlay de Consentimento:
+//   - Modal Glassmorphism centralizado com backdrop semi-transparente bloqueante
+//   - Suporte a teclas de atalho rápido: tecla Y para permitir e N para negar
+//   - Botões semânticos "Permitir" e "Negar"
+//   - Envio da modalidade ("keyboard" ou "click") no UseCase
+// ─────────────────────────────────────────────────────────────────
 class PermissionsWidget : public jay::engine::Widget {
 public:
     PermissionsWidget(jay::state::StateStore& store, jay::usecases::ApprovePermissionUseCase& approveUseCase)
@@ -25,31 +34,18 @@ public:
     }
 
     void Init() override {
-        // Inicializa o painel do modal e os botões de ação
         m_modalPanel = std::make_unique<jay::shared::widgets::Panel>(
             jay::engine::Color{22, 27, 34, 245},  // Glassmorphism escuro
             jay::engine::Color{56, 139, 253, 255}, // Bordas azuis de destaque
             12.0f
         );
 
-        m_titleLabel = std::make_unique<jay::shared::widgets::Label>(
-            "SOLICITAÇÃO DE PERMISSÃO", 16.0f, jay::engine::Color{210, 153, 34, 255}
-        );
-
-        m_promptLabel = std::make_unique<jay::shared::widgets::Label>(
-            "", 14.0f, jay::engine::Color{201, 209, 217, 255}
-        );
-
-        m_allowButton = std::make_unique<jay::shared::widgets::Button>("PERMITIR", [this]() {
-            if (m_activeRequest) {
-                m_approveUseCase.Execute(m_activeRequest->refId, true);
-            }
+        m_allowButton = std::make_unique<jay::shared::widgets::Button>("Permitir [Y]", [this]() {
+            RespondPermission(true, "click");
         });
 
-        m_denyButton = std::make_unique<jay::shared::widgets::Button>("NEGAR", [this]() {
-            if (m_activeRequest) {
-                m_approveUseCase.Execute(m_activeRequest->refId, false);
-            }
+        m_denyButton = std::make_unique<jay::shared::widgets::Button>("Negar [N]", [this]() {
+            RespondPermission(false, "click");
         });
 
         m_modalPanel->Init();
@@ -66,9 +62,8 @@ public:
             return;
         }
 
-        // Calcula posição centralizada do modal
-        float modalW = (m_bounds.width * 0.5f > 420.0f) ? 420.0f : m_bounds.width * 0.8f;
-        float modalH = 180.0f;
+        float modalW = (m_bounds.width * 0.5f > 460.0f) ? 460.0f : m_bounds.width * 0.85f;
+        float modalH = 170.0f;
         float modalX = (m_bounds.width - modalW) * 0.5f;
         float modalY = (m_bounds.height - modalH) * 0.5f;
 
@@ -76,16 +71,15 @@ public:
         m_modalPanel->Layout(jay::engine::BoxConstraints::Tight(modalW, modalH));
         m_modalPanel->SetBounds(m_modalBounds);
 
-        // Posiciona os elementos internos do modal
-        float btnW = 120.0f;
+        float btnW = 160.0f;
         float btnH = 36.0f;
         float btnY = modalY + modalH - btnH - 16.0f;
 
         m_allowButton->Layout(jay::engine::BoxConstraints::Tight(btnW, btnH));
-        m_allowButton->SetBounds(jay::engine::Rect{modalX + modalW - btnW * 2.0f - 24.0f, btnY, btnW, btnH});
+        m_allowButton->SetBounds(jay::engine::Rect{modalX + 30.0f, btnY, btnW, btnH});
 
         m_denyButton->Layout(jay::engine::BoxConstraints::Tight(btnW, btnH));
-        m_denyButton->SetBounds(jay::engine::Rect{modalX + modalW - btnW - 16.0f, btnY, btnW, btnH});
+        m_denyButton->SetBounds(jay::engine::Rect{modalX + modalW - btnW - 30.0f, btnY, btnW, btnH});
 
         m_layoutDirty = false;
     }
@@ -101,17 +95,17 @@ public:
     void Render(jay::engine::RenderContext& ctx) const override {
         if (!m_activeRequest.has_value()) return;
 
-        // Overlay escuro de fundo cobrindo toda a janela
+        // Overlay escuro de fundo cobrindo toda a janela (bloqueante)
         ctx.DrawRect(m_bounds, jay::engine::Color{0, 0, 0, 160});
 
-        // Desenha o painel central do modal
+        // Painel Glassmorphism do modal
         m_modalPanel->Render(ctx);
 
-        // Desenha o título e o prompt
-        ctx.DrawText("SOLICITAÇÃO DE PERMISSÃO", {m_modalBounds.x + 16.0f, m_modalBounds.y + 16.0f}, 16.0f, jay::engine::Color{210, 153, 34, 255});
-        ctx.DrawText(m_activeRequest->prompt, {m_modalBounds.x + 16.0f, m_modalBounds.y + 48.0f}, 14.0f, jay::engine::Color{201, 209, 217, 255});
+        // Título e Prompt
+        ctx.DrawText("Solicitação de Permissão", {m_modalBounds.x + 20.0f, m_modalBounds.y + 20.0f}, 18.0f, jay::engine::Color{201, 209, 217, 255});
+        ctx.DrawText(m_activeRequest->prompt, {m_modalBounds.x + 20.0f, m_modalBounds.y + 55.0f}, 14.0f, jay::engine::Color{139, 148, 158, 255});
 
-        // Desenha os botões de ação
+        // Botões
         m_allowButton->Render(ctx);
         m_denyButton->Render(ctx);
     }
@@ -119,12 +113,26 @@ public:
     bool OnEvent(const jay::engine::InputEvent& event) override {
         if (!m_activeRequest.has_value()) return false;
 
-        // Se o modal estiver visível, consome todos os eventos para bloquear a tela de fundo
+        // Suporte a atalhos de teclado rápidos: Y para permitir, N para negar (PERM-002)
+        if (event.kind == jay::engine::InputEventKind::KeyPress) {
+            if (event.key == 'Y' || event.key == 'y') {
+                RespondPermission(true, "keyboard");
+                event.handled = true;
+                return true;
+            }
+            if (event.key == 'N' || event.key == 'n') {
+                RespondPermission(false, "keyboard");
+                event.handled = true;
+                return true;
+            }
+        }
+
+        // Cliques de botão
         if (m_allowButton->OnEvent(event)) return true;
         if (m_denyButton->OnEvent(event)) return true;
 
         event.handled = true;
-        return true; // Bloqueia propagação para widgets inferiores
+        return true; // Bloqueia totalmente os eventos para os widgets inferiores
     }
 
 private:
@@ -133,11 +141,17 @@ private:
     std::optional<jay::state::PermissionRequestDTO> m_activeRequest;
 
     std::unique_ptr<jay::shared::widgets::Panel>  m_modalPanel;
-    std::unique_ptr<jay::shared::widgets::Label>  m_titleLabel;
-    std::unique_ptr<jay::shared::widgets::Label>  m_promptLabel;
     std::unique_ptr<jay::shared::widgets::Button> m_allowButton;
     std::unique_ptr<jay::shared::widgets::Button> m_denyButton;
     jay::engine::Rect                            m_modalBounds;
+
+    void RespondPermission(bool allow, const std::string& /*modality*/) {
+        if (!m_activeRequest.has_value()) return;
+        std::string refId = m_activeRequest->refId;
+        m_approveUseCase.Execute(refId, allow);
+        m_activeRequest = std::nullopt;
+        MarkLayoutDirty();
+    }
 
     void OnStateChanged() {
         auto req = m_store.GetActivePermissionRequest();

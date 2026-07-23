@@ -37,6 +37,7 @@ target_sources(jay-frontend
     src/features/avatar/avatar_viewmodel.cppm
     src/features/avatar/avatar_widget.cppm
     src/features/chat/message_bubble_widget.cppm
+    src/features/chat/tool_group_widget.cppm
     src/features/chat/chat_viewmodel.cppm
     src/features/chat/chat_widget.cppm
     src/features/chat/chat_input_widget.cppm
