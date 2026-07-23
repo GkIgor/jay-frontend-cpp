@@ -55,6 +55,10 @@ struct PermissionRequestDTO {
     std::string refId;
     std::string prompt;
     std::string toolName;
+
+    bool operator==(const PermissionRequestDTO& rhs) const noexcept {
+        return refId == rhs.refId && prompt == rhs.prompt && toolName == rhs.toolName;
+    }
 };
 
 // ─────────────────────────────────────────────────────────────────

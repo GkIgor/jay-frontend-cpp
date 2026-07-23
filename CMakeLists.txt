@@ -3,6 +3,9 @@ project(jay-frontend-cpp CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+option(ENABLE_ASAN "Enable AddressSanitizer in Debug mode" ON)
+
 include(FetchContent)
 FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git GIT_TAG v3.11.3)
 set(JSON_BuildTests OFF CACHE INTERNAL "")
@@ -31,6 +34,13 @@ target_sources(jay-frontend
     src/shared/widgets/label.cppm
     src/shared/widgets/button.cppm
     src/shared/widgets/panel.cppm
+    src/features/avatar/avatar_viewmodel.cppm
+    src/features/avatar/avatar_widget.cppm
+    src/features/chat/message_bubble_widget.cppm
+    src/features/chat/chat_viewmodel.cppm
+    src/features/chat/chat_widget.cppm
+    src/features/chat/chat_input_widget.cppm
+    src/features/permissions/permissions_widget.cppm
     src/app/theme.cppm
     src/features/avatar/avatar_state.cppm
     src/features/chat/chat_state.cppm
@@ -52,15 +62,11 @@ target_sources(jay-frontend
     src/features/chat/chat_events.cppm
     src/features/chat/chat_input.cppm
     src/features/chat/chat_renderer.cppm
-    src/features/permissions/permission_modal.cppm
-    src/app/renderer.cppm
     src/app/main_window.cppm
     src/app/shell.cppm
     src/app/application.cppm
 )
 target_link_libraries(jay-frontend PRIVATE raylib nlohmann_json::nlohmann_json pthread)
-
-option(ENABLE_ASAN "Enable AddressSanitizer in Debug mode" ON)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_options(jay-frontend PRIVATE -g)
