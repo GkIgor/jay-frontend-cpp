@@ -16,15 +16,6 @@ import jay.usecases.approve_permission;
 
 export namespace jay::features::permissions {
 
-// ─────────────────────────────────────────────────────────────────
-// PermissionsWidget (Task 40: PERM-001, PERM-002)
-//
-// Modal Overlay de Consentimento:
-//   - Modal Glassmorphism centralizado com backdrop semi-transparente bloqueante
-//   - Suporte a teclas de atalho rápido: tecla Y para permitir e N para negar
-//   - Botões semânticos "Permitir" e "Negar"
-//   - Envio da modalidade ("keyboard" ou "click") no UseCase
-// ─────────────────────────────────────────────────────────────────
 class PermissionsWidget : public jay::engine::Widget {
 public:
     PermissionsWidget(jay::state::StateStore& store, jay::usecases::ApprovePermissionUseCase& approveUseCase)
@@ -35,8 +26,8 @@ public:
 
     void Init() override {
         m_modalPanel = std::make_unique<jay::shared::widgets::Panel>(
-            jay::engine::Color{22, 27, 34, 245},  // Glassmorphism escuro
-            jay::engine::Color{56, 139, 253, 255}, // Bordas azuis de destaque
+            jay::engine::Color{22, 27, 34, 245},
+            jay::engine::Color{56, 139, 253, 255},
             12.0f
         );
 
@@ -95,17 +86,13 @@ public:
     void Render(jay::engine::RenderContext& ctx) const override {
         if (!m_activeRequest.has_value()) return;
 
-        // Overlay escuro de fundo cobrindo toda a janela (bloqueante)
         ctx.DrawRect(m_bounds, jay::engine::Color{0, 0, 0, 160});
 
-        // Painel Glassmorphism do modal
         m_modalPanel->Render(ctx);
 
-        // Título e Prompt
         ctx.DrawText("Solicitação de Permissão", {m_modalBounds.x + 20.0f, m_modalBounds.y + 20.0f}, 18.0f, jay::engine::Color{201, 209, 217, 255});
         ctx.DrawText(m_activeRequest->prompt, {m_modalBounds.x + 20.0f, m_modalBounds.y + 55.0f}, 14.0f, jay::engine::Color{139, 148, 158, 255});
 
-        // Botões
         m_allowButton->Render(ctx);
         m_denyButton->Render(ctx);
     }
@@ -113,7 +100,6 @@ public:
     bool OnEvent(const jay::engine::InputEvent& event) override {
         if (!m_activeRequest.has_value()) return false;
 
-        // Suporte a atalhos de teclado rápidos: Y para permitir, N para negar (PERM-002)
         if (event.kind == jay::engine::InputEventKind::KeyPress) {
             if (event.key == 'Y' || event.key == 'y') {
                 RespondPermission(true, "keyboard");
@@ -127,12 +113,11 @@ public:
             }
         }
 
-        // Cliques de botão
         if (m_allowButton->OnEvent(event)) return true;
         if (m_denyButton->OnEvent(event)) return true;
 
         event.handled = true;
-        return true; // Bloqueia totalmente os eventos para os widgets inferiores
+        return true;
     }
 
 private:

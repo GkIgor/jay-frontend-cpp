@@ -14,17 +14,6 @@ import scrollbar;
 
 export namespace jay::features::chat {
 
-// ─────────────────────────────────────────────────────────────────
-// ChatWidget (Task 39: CHAT-001, CHAT-002)
-//
-// Feed de Mensagens com Rolagem Inteligente:
-//   - Scroll Controller com sensibilidade WheelSensChat (140px)
-//   - Scrollbar (8px) com arraste do thumb por mouse (Slide Drag)
-//   - Suporte a rolagem por teclado (PageUp / PageDown)
-//   - Auto-scroll inteligente: rola para a base se mensagem for do usuário;
-//     preserva a posição do histórico se a IA responder e o usuário estiver
-//     rolando acima da margem de 50px.
-// ─────────────────────────────────────────────────────────────────
 class ChatWidget : public jay::engine::ContainerWidget {
 public:
     explicit ChatWidget(std::shared_ptr<ChatViewModel> viewModel)
@@ -74,12 +63,10 @@ public:
     void Render(jay::engine::RenderContext& ctx) const override {
         if (!m_visible) return;
 
-        // Renderiza o feed com Scissor Stack ativado
         ctx.PushScissor(m_bounds);
         ContainerWidget::Render(ctx);
         ctx.PopScissor();
 
-        // Renderiza a barra de rolagem (Scrollbar 8px)
         float maxScroll = std::max(0.0f, m_contentHeight - m_bounds.height + 32.0f);
         if (m_contentHeight > m_bounds.height) {
             jay::engine::Rect trackRect{
@@ -105,10 +92,8 @@ public:
 
         float maxScroll = std::max(0.0f, m_contentHeight - m_bounds.height + 32.0f);
 
-        // 1. Processa rolagem por mouse wheel (WheelSensChat = 140px)
         if (event.kind == jay::engine::InputEventKind::MouseScroll) {
             if (m_bounds.Contains({event.mouseX, event.mouseY})) {
-                // event.scrollDelta positivo = roda para cima -> reduz offset
                 m_scrollController.ApplyWheel(-event.scrollDelta);
                 m_scrollController.Clamp(0.0f, maxScroll);
                 UpdateWasAtBottom(maxScroll);
@@ -118,9 +103,8 @@ public:
             }
         }
 
-        // 2. Processa rolagem por teclado (PageUp / PageDown)
         if (event.kind == jay::engine::InputEventKind::KeyPress) {
-            if (event.key == 266) { // KEY_PAGE_UP
+            if (event.key == 266) {
                 m_scrollController.ScrollByKeyboard(-m_bounds.height * 0.8f);
                 m_scrollController.Clamp(0.0f, maxScroll);
                 UpdateWasAtBottom(maxScroll);
@@ -128,7 +112,7 @@ public:
                 event.handled = true;
                 return true;
             }
-            if (event.key == 267) { // KEY_PAGE_DOWN
+            if (event.key == 267) {
                 m_scrollController.ScrollByKeyboard(m_bounds.height * 0.8f);
                 m_scrollController.Clamp(0.0f, maxScroll);
                 UpdateWasAtBottom(maxScroll);
@@ -138,7 +122,6 @@ public:
             }
         }
 
-        // Delegar aos balões filhos
         return ContainerWidget::OnEvent(event);
     }
 
@@ -150,7 +133,6 @@ private:
 
     void UpdateWasAtBottom(float maxScroll) {
         float currentOffset = m_scrollController.GetOffset();
-        // Se a distância até a base for menor que 50px, considera que o usuário está no fundo
         m_wasAtBottom = (maxScroll - currentOffset) <= 50.0f;
     }
 
@@ -172,9 +154,6 @@ private:
 
         MarkLayoutDirty();
 
-        // Regra do Auto-Scroll Inteligente (CHAT-002):
-        // Se a mensagem for do usuário OU se o usuário já estava no fundo (margem de 50px),
-        // força o scroll para a base.
         if (lastIsUser || m_wasAtBottom) {
             float maxScroll = std::max(0.0f, m_contentHeight - m_bounds.height + 32.0f);
             m_scrollController.SetOffset(maxScroll);

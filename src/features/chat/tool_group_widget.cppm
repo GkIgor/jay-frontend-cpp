@@ -18,15 +18,6 @@ struct ToolActionItem {
     std::string error;
 };
 
-// ─────────────────────────────────────────────────────────────────
-// ToolGroupWidget (Task 38: CHAT-009)
-//
-// Componente de Grupo de Ferramentas Retrátil:
-//   - Agrupamento de ações de ferramentas em um balão expansível
-//   - Cabeçalho com botão de triângulo e contador de ações ("N ações executadas")
-//   - Animação de expansão/colapso via TweenFloat
-//   - Linhas individuais com ícone check verde para sucesso e X vermelho para erros
-// ─────────────────────────────────────────────────────────────────
 class ToolGroupWidget : public jay::engine::Widget {
 public:
     static constexpr float kHeaderHeight    = 36.0f;
@@ -60,20 +51,17 @@ public:
     void Render(jay::engine::RenderContext& ctx) const override {
         if (!m_visible) return;
 
-        jay::engine::Color bg{22, 27, 34, 255};      // Surface
-        jay::engine::Color border{48, 54, 61, 255};  // Border
+        jay::engine::Color bg{22, 27, 34, 255};
+        jay::engine::Color border{48, 54, 61, 255};
 
-        // Corpo do balão do grupo de ferramentas
         ctx.DrawRectRounded(m_bounds, 8.0f, bg);
         ctx.DrawRectLines(m_bounds, 1.0f, border);
 
-        // Cabeçalho do grupo
         jay::engine::Rect headerRect{m_bounds.x, m_bounds.y, m_bounds.width, kHeaderHeight};
         if (m_isHeaderHovered) {
             ctx.DrawRectRounded(headerRect, 8.0f, jay::engine::Color{255, 255, 255, 10});
         }
 
-        // Ícone de triângulo indicador (expandido / colapsado)
         std::string_view arrowIcon = m_expanded ? "▼" : "▶";
         jay::engine::Color arrowCol = m_isHeaderHovered
             ? jay::engine::Color{201, 209, 217, 255}
@@ -81,14 +69,11 @@ public:
 
         ctx.DrawText(arrowIcon, {m_bounds.x + 14.0f, m_bounds.y + 10.0f}, 12.0f, arrowCol);
 
-        // Texto do contador de ações
         int count = static_cast<int>(m_actions.size());
         std::string label = std::to_string(count) + (count == 1 ? " ação executada" : " ações executadas");
         ctx.DrawText(label, {m_bounds.x + 32.0f, m_bounds.y + 9.0f}, 13.0f, arrowCol);
 
-        // Desenha lista de ações se expandido
         if (m_expanded && m_bounds.height > kHeaderHeight + 4.0f) {
-            // Linha divisória
             ctx.DrawRect(
                 jay::engine::Rect{m_bounds.x + 8.0f, m_bounds.y + kHeaderHeight, m_bounds.width - 16.0f, 1.0f},
                 border
@@ -101,9 +86,9 @@ public:
                 float iconX = m_bounds.x + 14.0f;
 
                 if (action.success) {
-                    ctx.DrawText("✓", {iconX, rowY + 2.0f}, 13.0f, jay::engine::Color{48, 161, 78, 255}); // Success
+                    ctx.DrawText("✓", {iconX, rowY + 2.0f}, 13.0f, jay::engine::Color{48, 161, 78, 255});
                 } else {
-                    ctx.DrawText("✗", {iconX, rowY + 2.0f}, 13.0f, jay::engine::Color{218, 54, 51, 255}); // Danger
+                    ctx.DrawText("✗", {iconX, rowY + 2.0f}, 13.0f, jay::engine::Color{218, 54, 51, 255});
                 }
 
                 jay::engine::Color nameCol = action.success

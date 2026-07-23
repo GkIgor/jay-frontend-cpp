@@ -18,18 +18,6 @@ import unicode;
 
 export namespace jay::features::chat {
 
-// ─────────────────────────────────────────────────────────────────
-// ChatInputWidget (Task 36: CHAT-010..CHAT-016)
-//
-// Integração do TextEditor com suporte a:
-//   - Edição UTF-8 e Undo/Redo (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z)
-//   - Navegação por palavras (Ctrl+Left/Right), Home/End, Setas ↑ ↓ (preferredColumn)
-//   - Seleção de texto no input (Ctrl+A, Shift+Setas, mouse drag, duplo/triplo clique)
-//   - Clipboard em UTF-8 (Ctrl+C, Ctrl+V, Ctrl+X) e deleção por palavra (Ctrl+Backspace/Delete)
-//   - Word-wrap e divisão de tokens gigantes
-//   - Scrollbar interna no input e clique sob scroll ativo
-//   - Desabilitação do botão Enviar e da tecla Enter quando assistente processa
-// ─────────────────────────────────────────────────────────────────
 class ChatInputWidget : public jay::engine::Widget {
 public:
     explicit ChatInputWidget(std::shared_ptr<ChatViewModel> viewModel)
@@ -39,7 +27,7 @@ public:
           m_clickCount(0),
           m_isDragging(false),
           m_caretAnimTime(0.0f) {
-        tabIndex = 1; // Focável por teclado
+        tabIndex = 1;
     }
 
     void Init() override {
@@ -63,7 +51,6 @@ public:
             btnH
         });
 
-        // Área de edição útil (descontando o botão de envio)
         m_editAreaW = m_bounds.width - btnW - 24.0f;
         if (m_editAreaW < 100.0f) m_editAreaW = 100.0f;
 
@@ -73,7 +60,6 @@ public:
     void Update(float deltaTime) override {
         m_caretAnimTime += deltaTime;
         if (m_sendButton) {
-            // Desabilita o botão se o assistente estiver processando
             bool isProcessing = IsAssistantProcessing();
             m_sendButton->SetEnabled(!isProcessing);
             m_sendButton->Update(deltaTime);
@@ -83,25 +69,21 @@ public:
     void Render(jay::engine::RenderContext& ctx) const override {
         if (!m_visible) return;
 
-        // Fundo e bordas do campo de entrada
         jay::engine::Color bg{22, 27, 34, 255};
         jay::engine::Color border{48, 54, 61, 255};
 
         ctx.DrawRectRounded(m_bounds, 8.0f, bg);
         ctx.DrawRectLines(m_bounds, 1.0f, border);
 
-        // Constrói a configuração do layout de texto usando a fonte do RenderContext
         jay::TextLayoutConfig config;
         config.font = ctx.NativeFont();
         config.fontSize = 15.0f;
         config.maxWidth = m_editAreaW;
         config.wrapWords = true;
 
-        // Reconstrução de layout no editor (mutação local de render layout)
         const_cast<jay::TextEditor&>(m_editor).RebuildLayout(config);
         const auto& physicalLines = m_editor.GetLayout().GetLines();
 
-        // Área de clivagem do texto
         jay::engine::Rect textClipRect{
             m_bounds.x + 12.0f,
             m_bounds.y + 6.0f,
@@ -118,7 +100,6 @@ public:
         if (m_editor.GetTextLength() == 0) {
             ctx.DrawText("Digite uma mensagem...", {startX, startY}, 15.0f, jay::engine::Color{139, 148, 158, 255});
         } else {
-            // Renderiza destaque de seleção de texto (CHAT-012)
             const auto& sel = m_editor.GetSelection();
             if (sel.IsActive()) {
                 size_t selStart = sel.GetStart();
@@ -133,14 +114,14 @@ public:
                     for (size_t i = 0; i < cps.size(); ++i) {
                         if (charAbsIdx >= selStart && charAbsIdx < selEnd) {
                             std::vector<char32_t> subBefore(cps.begin(), cps.begin() + i);
-                            std::vector<char32_t> subChar(cps.begin() + i, cps.begin() + i + 1);
+                            std::vector<char32_t> subChar(cps.begin(), cps.begin() + i + 1);
 
                             float x1 = ctx.MeasureText(jay::unicode::CodepointsToUtf8(subBefore), 15.0f);
                             float charW = ctx.MeasureText(jay::unicode::CodepointsToUtf8(subChar), 15.0f);
 
                             ctx.DrawRect(
                                 jay::engine::Rect{startX + x1, lineY, charW, stepY},
-                                jay::engine::Color{31, 111, 235, 120} // Highlight azul
+                                jay::engine::Color{31, 111, 235, 120}
                             );
                         }
                         charAbsIdx++;
@@ -149,13 +130,11 @@ public:
                 }
             }
 
-            // Renderiza linhas físicas de texto (CHAT-014)
             for (size_t l = 0; l < physicalLines.size(); ++l) {
                 float lineY = startY + l * stepY;
                 ctx.DrawText(physicalLines[l].text, {startX, lineY}, 15.0f, jay::engine::Color{201, 209, 217, 255});
             }
 
-            // Renderiza o cursor (Caret) piscante (CHAT-010)
             if (std::fmod(m_caretAnimTime, 1.0f) < 0.5f) {
                 size_t caretIdx = m_editor.GetCaret().logicalIndex;
                 auto [lineIdx, colIdx] = m_editor.GetLayout().IndexToLineCol(caretIdx);
@@ -180,14 +159,12 @@ public:
 
         ctx.PopScissor();
 
-        // Renderiza o botão de envio
         if (m_sendButton) m_sendButton->Render(ctx);
     }
 
     bool OnEvent(const jay::engine::InputEvent& event) override {
         if (!m_visible || !m_enabled) return false;
 
-        // Delegar ao botão Enviar
         if (m_sendButton && m_sendButton->OnEvent(event)) {
             return true;
         }
@@ -195,10 +172,8 @@ public:
         bool ctrl  = event.ctrl;
         bool shift = event.shift;
 
-        // 1. Processa atalhos de teclado (KeyPress)
         if (event.kind == jay::engine::InputEventKind::KeyPress) {
-            // Se o assistente estiver processando, bloqueia envio via Enter
-            if (event.key == 257) { // KEY_ENTER
+            if (event.key == 257) {
                 if (!shift && !IsAssistantProcessing()) {
                     SubmitText();
                     event.handled = true;
@@ -228,62 +203,60 @@ public:
                     MarkLayoutDirty();
                     return true;
                 }
-                if (event.key == 259) { // KEY_BACKSPACE com Ctrl (Deleção por palavra)
+                if (event.key == 259) {
                     m_editor.Delete(jay::Direction::Backward, jay::MoveUnit::Word);
                     MarkLayoutDirty();
                     return true;
                 }
-                if (event.key == 261) { // KEY_DELETE com Ctrl
+                if (event.key == 261) {
                     m_editor.Delete(jay::Direction::Forward, jay::MoveUnit::Word);
                     MarkLayoutDirty();
                     return true;
                 }
             }
 
-            // Setas de navegação (Setas, Home, End)
-            if (event.key == 263) { // KEY_LEFT
+            if (event.key == 263) {
                 m_editor.Move(jay::Direction::Backward, ctrl ? jay::MoveUnit::Word : jay::MoveUnit::Character, shift);
                 MarkLayoutDirty();
                 return true;
             }
-            if (event.key == 262) { // KEY_RIGHT
+            if (event.key == 262) {
                 m_editor.Move(jay::Direction::Forward, ctrl ? jay::MoveUnit::Word : jay::MoveUnit::Character, shift);
                 MarkLayoutDirty();
                 return true;
             }
-            if (event.key == 265) { // KEY_UP
+            if (event.key == 265) {
                 m_editor.Move(jay::Direction::Up, jay::MoveUnit::Character, shift);
                 MarkLayoutDirty();
                 return true;
             }
-            if (event.key == 264) { // KEY_DOWN
+            if (event.key == 264) {
                 m_editor.Move(jay::Direction::Down, jay::MoveUnit::Character, shift);
                 MarkLayoutDirty();
                 return true;
             }
-            if (event.key == 268) { // KEY_HOME
+            if (event.key == 268) {
                 m_editor.Move(jay::Direction::Backward, ctrl ? jay::MoveUnit::Document : jay::MoveUnit::Line, shift);
                 MarkLayoutDirty();
                 return true;
             }
-            if (event.key == 269) { // KEY_END
+            if (event.key == 269) {
                 m_editor.Move(jay::Direction::Forward, ctrl ? jay::MoveUnit::Document : jay::MoveUnit::Line, shift);
                 MarkLayoutDirty();
                 return true;
             }
-            if (event.key == 259 && !ctrl) { // KEY_BACKSPACE simples
+            if (event.key == 259 && !ctrl) {
                 m_editor.Delete(jay::Direction::Backward, jay::MoveUnit::Character);
                 MarkLayoutDirty();
                 return true;
             }
-            if (event.key == 261 && !ctrl) { // KEY_DELETE simples
+            if (event.key == 261 && !ctrl) {
                 m_editor.Delete(jay::Direction::Forward, jay::MoveUnit::Character);
                 MarkLayoutDirty();
                 return true;
             }
         }
 
-        // 2. Processa digitação de caracteres Unicode (CharInput)
         if (event.kind == jay::engine::InputEventKind::CharInput) {
             if (event.codepoint >= 32) {
                 std::vector<char32_t> cps = {static_cast<char32_t>(event.codepoint)};
@@ -294,8 +267,7 @@ public:
             }
         }
 
-        // 3. Processa cliques e seleção por mouse (MousePress / MouseMove)
-        if (event.kind == jay::engine::InputEventKind::MousePress && event.key == 0) { // Clique Esquerdo
+        if (event.kind == jay::engine::InputEventKind::MousePress && event.key == 0) {
             if (m_bounds.Contains({event.mouseX, event.mouseY})) {
                 size_t clickIdx = GetCharIndexAtPos(event.mouseX, event.mouseY);
                 if (shift) {
@@ -370,7 +342,6 @@ private:
         std::vector<char32_t> lineCps = jay::unicode::Utf8ToCodepoints(physicalLines[lineIdx].text);
         int colIdx = 0;
 
-        // Estima coluna por distância aproximada de caracteres
         float localX = mouseX - startX;
         if (localX < 0.0f) localX = 0.0f;
         float approxCharW = 8.5f;
