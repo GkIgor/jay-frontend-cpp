@@ -45,9 +45,20 @@ public:
             if (child->IsVisible()) {
                 child->Layout(childConstraints);
                 jay::engine::Rect childBounds = child->GetBounds();
-                childBounds.y = currentY;
-                childBounds.x += m_bounds.x + 16.0f;
-                child->SetBounds(childBounds);
+
+                auto* bubble = dynamic_cast<MessageBubbleWidget*>(child.get());
+                float relX = 0.0f;
+                if (bubble && bubble->GetMessage().sender == "user") {
+                    relX = (m_bounds.width - 32.0f) - childBounds.width;
+                    if (relX < 0.0f) relX = 0.0f;
+                }
+
+                child->SetBounds(jay::engine::Rect{
+                    m_bounds.x + 16.0f + relX,
+                    currentY,
+                    childBounds.width,
+                    childBounds.height
+                });
 
                 currentY += childBounds.height + spacingY;
             }
