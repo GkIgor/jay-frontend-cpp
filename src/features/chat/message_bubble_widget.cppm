@@ -142,9 +142,24 @@ public:
 
         if (m_copyTimer > 0.0f) {
             ctx.DrawRectRounded(m_copyBtnRect, 4.0f, jay::engine::Color{48, 161, 78, 255});
-            ctx.DrawText("✓", {m_copyBtnRect.x + 6.0f, m_copyBtnRect.y + 3.0f}, 14.0f, jay::engine::Color{255, 255, 255, 255});
+            ctx.DrawText("OK", {m_copyBtnRect.x + 4.0f, m_copyBtnRect.y + 4.0f}, 12.0f, jay::engine::Color{255, 255, 255, 255});
         } else {
-            ctx.DrawText("📋", {m_copyBtnRect.x + 4.0f, m_copyBtnRect.y + 3.0f}, 14.0f, iconCol);
+            jay::engine::Rect backSheet{
+                m_copyBtnRect.x + 8.0f,
+                m_copyBtnRect.y + 3.0f,
+                10.0f,
+                12.0f
+            };
+            jay::engine::Rect frontSheet{
+                m_copyBtnRect.x + 4.0f,
+                m_copyBtnRect.y + 7.0f,
+                10.0f,
+                12.0f
+            };
+
+            ctx.DrawRectLines(backSheet, 1.0f, iconCol);
+            ctx.DrawRect(frontSheet, bg);
+            ctx.DrawRectLines(frontSheet, 1.0f, iconCol);
         }
     }
 
