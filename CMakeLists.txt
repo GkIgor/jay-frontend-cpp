@@ -30,6 +30,7 @@ target_sources(jay-frontend
     src/usecases/use_case.cppm
     src/usecases/send_message_usecase.cppm
     src/usecases/create_chat_usecase.cppm
+    src/usecases/register_client_usecase.cppm
     src/usecases/approve_permission_usecase.cppm
     src/shared/widgets/label.cppm
     src/shared/widgets/button.cppm
@@ -77,4 +78,3 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_link_options(jay-frontend PRIVATE -fsanitize=address)
   endif()
 endif()
-
