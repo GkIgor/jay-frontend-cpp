@@ -29,12 +29,17 @@ public:
 
     [[nodiscard]] const std::vector<jay::state::MessageDTO>& GetMessages() const noexcept {
         static const std::vector<jay::state::MessageDTO> empty;
+        if (m_activeChatId.empty()) return empty;
         auto* msgs = m_store.GetMessagesForChat(m_activeChatId);
         return msgs ? *msgs : empty;
     }
 
     void SendMessage(const std::string& text) {
-        if (m_activeChatId.empty() || text.empty()) return;
+        if (text.empty()) return;
+        if (m_activeChatId.empty()) {
+            m_activeChatId = "default_chat";
+            m_store.Dispatch(jay::state::SetActiveChatAction{m_activeChatId});
+        }
         m_sendMessageUseCase.Execute(m_activeChatId, text);
     }
 
@@ -50,6 +55,9 @@ private:
 
     void OnStateChanged() {
         std::string currentActive = m_store.GetActiveChatId();
+        if (currentActive.empty() && !m_store.GetChats().empty()) {
+            currentActive = m_store.GetChats().front().id;
+        }
         m_activeChatId = currentActive;
         if (m_onUpdate) m_onUpdate();
     }

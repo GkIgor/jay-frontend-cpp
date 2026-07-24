@@ -102,7 +102,7 @@ public:
 
     // ── Geometria ─────────────────────────────────────────────────
 
-    void SetBounds(Rect bounds) noexcept {
+    virtual void SetBounds(Rect bounds) noexcept {
         m_bounds = bounds;
     }
 

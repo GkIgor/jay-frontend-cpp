@@ -37,23 +37,20 @@ public:
         m_sendButton->Init();
     }
 
+    void SetBounds(jay::engine::Rect bounds) noexcept override {
+        jay::engine::Widget::SetBounds(bounds);
+        UpdateSendButtonBounds();
+    }
+
     void Layout(const jay::engine::BoxConstraints& constraints) override {
         m_bounds.width  = constraints.maxW;
         m_bounds.height = (constraints.maxH > 0.0f) ? constraints.maxH : 54.0f;
 
         float btnW = 90.0f;
-        float btnH = m_bounds.height - 12.0f;
-        m_sendButton->Layout(jay::engine::BoxConstraints::Tight(btnW, btnH));
-        m_sendButton->SetBounds(jay::engine::Rect{
-            m_bounds.x + m_bounds.width - btnW - 6.0f,
-            m_bounds.y + 6.0f,
-            btnW,
-            btnH
-        });
-
         m_editAreaW = m_bounds.width - btnW - 24.0f;
         if (m_editAreaW < 100.0f) m_editAreaW = 100.0f;
 
+        UpdateSendButtonBounds();
         m_layoutDirty = false;
     }
 
@@ -307,6 +304,19 @@ private:
     int   m_clickCount;
     bool  m_isDragging;
     float m_caretAnimTime;
+
+    void UpdateSendButtonBounds() {
+        if (!m_sendButton) return;
+        float btnW = 90.0f;
+        float btnH = m_bounds.height - 12.0f;
+        m_sendButton->Layout(jay::engine::BoxConstraints::Tight(btnW, btnH));
+        m_sendButton->SetBounds(jay::engine::Rect{
+            m_bounds.x + m_bounds.width - btnW - 6.0f,
+            m_bounds.y + 6.0f,
+            btnW,
+            btnH
+        });
+    }
 
     void SubmitText() {
         if (IsAssistantProcessing()) return;
