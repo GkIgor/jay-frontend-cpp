@@ -34,6 +34,7 @@ target_sources(jay-frontend
     src/shared/widgets/label.cppm
     src/shared/widgets/button.cppm
     src/shared/widgets/panel.cppm
+    src/shared/widgets/layout_primitives.cppm
     src/features/avatar/avatar_viewmodel.cppm
     src/features/avatar/avatar_widget.cppm
     src/features/chat/message_bubble_widget.cppm
