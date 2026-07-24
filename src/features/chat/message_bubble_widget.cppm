@@ -49,7 +49,6 @@ public:
         float fontSize = 18.0f;
         float paddingH = 22.0f;
         float paddingV = 16.0f;
-        float copyBtnH = 30.0f;
 
         float availableTextW = maxBubbleW - paddingH * 2.0f;
         if (availableTextW < 80.0f) availableTextW = 80.0f;
@@ -59,11 +58,11 @@ public:
         float lines = std::ceil(textWidthEst / availableTextW);
         if (lines < 1.0f) lines = 1.0f;
 
-        float bubbleW = (textWidthEst < availableTextW) ? (textWidthEst + paddingH * 2.0f + 60.0f) : maxBubbleW;
-        if (bubbleW < 200.0f) bubbleW = 200.0f;
+        float bubbleW = (textWidthEst < availableTextW) ? (textWidthEst + paddingH * 2.0f) : maxBubbleW;
+        if (bubbleW < 180.0f) bubbleW = 180.0f;
 
         float textContentH = lines * (fontSize + 6.0f);
-        float bubbleH = paddingV * 2.0f + textContentH + copyBtnH;
+        float bubbleH = paddingV * 2.0f + textContentH;
 
         m_bounds.width  = bubbleW;
         m_bounds.height = bubbleH;
@@ -96,7 +95,7 @@ public:
         }
 
         ctx.DrawRectRounded(m_bounds, 12.0f, bg);
-        ctx.DrawRectLines(m_bounds, 1.0f, border);
+        ctx.DrawRectRoundedLines(m_bounds, 12.0f, 1.0f, border);
 
         float fontSize = 18.0f;
         float paddingH = 22.0f;
@@ -179,12 +178,25 @@ private:
     float                 m_animTime;
 
     void UpdateCopyBtnRect() {
-        m_copyBtnRect = jay::engine::Rect{
-            m_bounds.x + m_bounds.width - 36.0f,
-            m_bounds.y + m_bounds.height - 32.0f,
-            26.0f,
-            24.0f
-        };
+        float btnW = 28.0f;
+        float btnH = 26.0f;
+        float btnY = m_bounds.y + (m_bounds.height - btnH) * 0.5f;
+
+        if (m_message.sender == "user") {
+            m_copyBtnRect = jay::engine::Rect{
+                m_bounds.x - btnW - 10.0f,
+                btnY,
+                btnW,
+                btnH
+            };
+        } else {
+            m_copyBtnRect = jay::engine::Rect{
+                m_bounds.x + m_bounds.width + 10.0f,
+                btnY,
+                btnW,
+                btnH
+            };
+        }
     }
 
     void TrimMessageText() {

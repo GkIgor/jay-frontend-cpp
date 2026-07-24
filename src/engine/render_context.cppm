@@ -77,6 +77,13 @@ public:
         DrawRectangleRounded(ToRL(r), roundness, 8, ToRL(c));
     }
 
+    void DrawRectRoundedLines(Rect r, float radiusPx, float thick, Color c) const noexcept {
+        float shortSide = (r.width < r.height) ? r.width : r.height;
+        float roundness  = (shortSide > 0.0f) ? (2.0f * radiusPx / shortSide) : 0.0f;
+        if (roundness > 1.0f) roundness = 1.0f;
+        DrawRectangleRoundedLines(ToRL(r), roundness, 8, thick, ToRL(c));
+    }
+
     void DrawRectLines(Rect r, float thick, Color c) const noexcept {
         DrawRectangleLinesEx(ToRL(r), thick, ToRL(c));
     }
